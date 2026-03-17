@@ -230,7 +230,7 @@ Merge their complementary lessons into a single improved prompt. Return only the
             improved["user_prompt_template"] = new_prompt
         else:
             improved["system_prompt"] = new_prompt
-        return create_patched_agent(self.agent_fn, original_copy, improved)
+        return create_patched_agent(self.agent_fn, original_copy, improved, agent_file=self.agent_file)
 
     async def _run_and_evaluate(
         self,

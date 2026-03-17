@@ -51,23 +51,18 @@ PROVIDER_MODELS: dict[str, dict[str, dict[str, Any]]] = {
         },
     },
     "anthropic": {
-        "eval_recommended": "claude-opus-4-6",
-        "improve_recommended": "claude-sonnet-4-6",
+        "eval_recommended": "claude-opus-4-20250514",
+        "improve_recommended": "claude-sonnet-4-20250514",
         "models": {
-            "claude-opus-4-6": {
-                "input_cost_per_1m": 5.00,
-                "output_cost_per_1m": 25.00,
+            "claude-opus-4-20250514": {
+                "input_cost_per_1m": 15.00,
+                "output_cost_per_1m": 75.00,
                 "tier": "smart",
             },
-            "claude-sonnet-4-6": {
+            "claude-sonnet-4-20250514": {
                 "input_cost_per_1m": 3.00,
                 "output_cost_per_1m": 15.00,
                 "tier": "balanced",
-            },
-            "claude-haiku-4-5": {
-                "input_cost_per_1m": 0.80,
-                "output_cost_per_1m": 4.00,
-                "tier": "fast",
             },
         },
     },
@@ -401,9 +396,9 @@ TIER_OPTIONS: dict[str, dict[str, dict[str, str]]] = {
         "quality":  {"eval": "gpt-5.2",          "improve": "gpt-5.2"},
     },
     "anthropic": {
-        "fast":     {"eval": "claude-sonnet-4-6", "improve": "claude-haiku-4-5"},
-        "balanced": {"eval": "claude-opus-4-6",   "improve": "claude-sonnet-4-6"},
-        "quality":  {"eval": "claude-opus-4-6",   "improve": "claude-opus-4-6"},
+        "fast":     {"eval": "claude-sonnet-4-20250514", "improve": "claude-sonnet-4-20250514"},
+        "balanced": {"eval": "claude-opus-4-20250514",   "improve": "claude-sonnet-4-20250514"},
+        "quality":  {"eval": "claude-opus-4-20250514",   "improve": "claude-opus-4-20250514"},
     },
     "google": {
         "fast":     {"eval": "gemini-3-flash-preview", "improve": "gemini-3-flash-preview"},

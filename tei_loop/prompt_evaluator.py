@@ -188,18 +188,23 @@ Respond with valid JSON only:
 
             if use_code:
                 score, detail = _evaluate_metric_by_code(metric, inp_str, out_str)
-                if detail == "unable to parse" and metric.measurement_method == "code_based":
+                if detail == "unable to parse" or score <= 0.0:
                     use_code = False
 
-            if not use_code or (metric.measurement_method == "hybrid" and detail == "unable to parse"):
-                system = self._build_system_prompt()
-                user = self._build_user_prompt(trace, metric)
-                raw = await self.eval_llm.generate(system_prompt=system, user_prompt=user)
-                parsed = self._parse_llm_response(raw)
-                score = float(parsed.get("score", 0))
-                score = max(0.0, min(100.0, score))
-                detail = str(parsed.get("detail", ""))
-                used_llm = True
+            if not use_code:
+                try:
+                    system = self._build_system_prompt()
+                    user = self._build_user_prompt(trace, metric)
+                    raw = await self.eval_llm.generate(system_prompt=system, user_prompt=user)
+                    parsed = self._parse_llm_response(raw)
+                    score = float(parsed.get("score", 0))
+                    score = max(0.0, min(100.0, score))
+                    detail = str(parsed.get("detail", ""))
+                    used_llm = True
+                except Exception as e:
+                    score = 0.0
+                    detail = f"eval error: {e}"
+                    used_llm = True
 
             results.append(
                 MetricResult(
