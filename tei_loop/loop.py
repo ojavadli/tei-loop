@@ -445,21 +445,33 @@ class TEILoop:
                     print(f"      {DIM}Rationale: {metric.rationale}{RESET}")
                 print(f"      Formula: {CYAN}{metric.formula}{RESET}")
                 print(f"      Method:  code_based")
+                print()
+                print(f"      {BOLD}Choose:{RESET}")
+                print(f"        1) Accept & review next metric")
+                print(f"        2) Accept & skip to Step 6")
+                print(f"        3) Reject & review next metric")
+                print(f"        4) Reject & skip to Step 6")
 
-                choice = self._resolve_choice(f"      Accept? [Y/N/Other]: ")
+                try:
+                    raw = input(f"      Your choice [1/2/3/4]: ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    raw = "1"
+                if raw not in ("1", "2", "3", "4"):
+                    raw = "1"
 
-                if choice == "y":
+                if raw in ("1", "2"):
                     metric.approved = True
                     confirmed_metrics.append(metric)
                     print(f"      {GREEN}Accepted.{RESET}")
-                elif choice == "n":
-                    print(f"      {DIM}Rejected.{RESET}")
                 else:
-                    metric.approved = True
-                    metric.description = metric.description + " (user: " + choice + ")"
-                    confirmed_metrics.append(metric)
-                    print(f"      {GREEN}Accepted with modification.{RESET}")
+                    print(f"      {DIM}Rejected.{RESET}")
                 print()
+
+                if raw in ("2", "4"):
+                    remaining = proposed_metrics[i:]
+                    if remaining:
+                        print(f"      {DIM}Skipping remaining {len(remaining)} metric(s)...{RESET}\n")
+                    break
         else:
             print(f"  {YELLOW}No metrics proposed (limited agent source available).{RESET}")
 
