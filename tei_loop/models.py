@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 
 class Dimension(str, Enum):
-    """The four TEI evaluation dimensions."""
+    """The four TEI evaluation dimensions ."""
     TARGET_ALIGNMENT = "target_alignment"
     REASONING_SOUNDNESS = "reasoning_soundness"
     EXECUTION_ACCURACY = "execution_accuracy"
@@ -345,3 +345,34 @@ class TEIFullResult(BaseModel):
     total_duration_ms: float = 0.0
     total_cost_usd: float = 0.0
     timestamp: float = Field(default_factory=time.time)
+
+    def summary(self) -> str:
+        """Return a human-readable summary of the full TEI run."""
+        lines = ["TEI Full Result"]
+        lines.append(f"  Run ID: {self.run_id}")
+        lines.append(f"  Duration: {self.total_duration_ms / 1000:.1f}s")
+        lines.append(f"  Cost: ${self.total_cost_usd:.4f}")
+
+        if self.baseline_eval:
+            lines.append(f"  Baseline aggregate: {self.baseline_eval.aggregate_score:.3f}")
+        if self.final_eval:
+            lines.append(f"  Final aggregate:    {self.final_eval.aggregate_score:.3f}")
+        if self.baseline_eval and self.final_eval:
+            delta = self.final_eval.aggregate_score - self.baseline_eval.aggregate_score
+            pct = (delta / self.baseline_eval.aggregate_score * 100) if self.baseline_eval.aggregate_score else 0
+            lines.append(f"  Improvement:        {delta:+.3f} ({pct:+.1f}%)")
+
+        lines.append(f"  Checkpoints: {len(self.checkpoints)}")
+        applied = sum(1 for f in self.structural_fixes if f.applied)
+        lines.append(f"  Structural fixes: {applied} applied / {len(self.structural_fixes)} proposed")
+        lines.append(f"  Metrics: {len(self.metrics)} approved")
+
+        if self.optimization:
+            lines.append(f"  Optimization: {self.optimization.total_iterations} iterations")
+            if self.optimization.best_candidate:
+                lines.append(
+                    f"  Best prompt composite: "
+                    f"{self.optimization.best_candidate.composite_score:.1f}%"
+                )
+
+        return "\n".join(lines)

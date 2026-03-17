@@ -6,6 +6,7 @@ from .tracer import run_and_trace
 from .prompt_improver import extract_prompts, create_patched_agent
 import random
 import json
+import time
 from typing import Any, Callable, Optional
 
 
@@ -55,7 +56,6 @@ class PromptOptimizer:
         )
         front = [p0]
         metric_history = [dict(p0.metric_scores)]
-        baseline_scores = dict(p0.metric_scores)
 
         for i in range(1, num_iterations + 1):
             use_merge = len(front) >= 2 and self.rng.random() < 0.30
@@ -66,11 +66,9 @@ class PromptOptimizer:
                 parent_a, parent_b = ca, cb
             else:
                 parent = sample_from_front(front, self.rng)
-                parent_patched = self._create_patched_agent(parent.prompt_text)
-                sample_q = self.rng.choice(test_queries)
-                parent_trace = await run_and_trace(parent_patched, sample_q)
+                trace = self._pick_trace_for_candidate(parent, traces)
                 parent_results = [MetricResult(metric=m, score=parent.metric_scores.get(m.name, 0), detail="") for m in self.metrics]
-                new_prompt = await self._reflective_mutation(parent, parent_trace, parent_results)
+                new_prompt = await self._reflective_mutation(parent, trace, parent_results)
                 strategy_name = "mutation"
                 parent_a, parent_b = parent, None
 
@@ -96,18 +94,19 @@ class PromptOptimizer:
             metric_history.append(metric_scores_raw)
 
             if verbose:
-                abbrevs = self._metric_abbrevs(metric_scores_raw, baseline_scores)
+                abbrevs = self._metric_abbrevs(metric_scores_raw, front[0].metric_scores if front else {})
                 delta_str = ", ".join(abbrevs) if abbrevs else ""
                 add_str = f" new Pareto candidate ({delta_str})" if added else ""
                 ref_preview = ""
                 if strategy_name == "mutation":
                     ref_preview = new_prompt[:80].replace("\n", " ") + "..." if len(new_prompt) > 80 else new_prompt[:80]
                 else:
-                    ref_preview = f"merged from P{parent_a.iteration} + P{parent_b.iteration}"
+                    ref_preview = f"merged from {parent_a.iteration} + {parent_b.iteration}"
                 print(f"  Iter {i:2}/{num_iterations} | Comp: {comp_new:.1f}% | Pool: {len(front)}{add_str}")
                 print(f"    {strategy_name.capitalize()} from P{parent_a.iteration}. {ref_preview}")
 
         best = select_best(front)
+        baseline_scores = front[0].metric_scores if front else {}
         return OptimizationResult(
             total_iterations=num_iterations,
             pareto_front=front,
@@ -132,6 +131,11 @@ class PromptOptimizer:
             abbr = "".join(w[0].upper() for w in m.name.split()[:2])[:2] or m.name[:2]
             out.append(f"{abbr}{delta:+d}")
         return out
+
+    def _pick_trace_for_candidate(self, candidate: ParetoCandidate, traces: list[Trace]) -> Trace:
+        if not traces:
+            return Trace(agent_input=None, agent_output=None)
+        return traces[self.rng.randint(0, len(traces) - 1)]
 
     async def _reflective_mutation(
         self,
@@ -200,7 +204,6 @@ CANDIDATE A (strong on: {", ".join(strong_a)}):
 {candidate_a.prompt_text}
 ```
 Scores: {json.dumps(candidate_a.metric_scores)}
-
 CANDIDATE B (strong on: {", ".join(strong_b)}):
 ```
 {candidate_b.prompt_text}
@@ -218,16 +221,16 @@ Merge their complementary lessons into a single improved prompt. Return only the
     def _create_patched_agent(self, new_prompt: str) -> Callable:
         original_prompts = extract_prompts(self.agent_fn, self.agent_file)
         if not original_prompts:
-            original_prompts = {"user_prompt_template": new_prompt}
-            improved = dict(original_prompts)
+            original_prompts = {}
+        original_copy = dict(original_prompts)
+        improved = dict(original_prompts)
+        if "system_prompt" in improved:
+            improved["system_prompt"] = new_prompt
+        elif "user_prompt_template" in improved:
+            improved["user_prompt_template"] = new_prompt
         else:
-            original_prompts = dict(original_prompts)
-            improved = dict(original_prompts)
-            if "user_prompt_template" in improved:
-                improved["user_prompt_template"] = new_prompt
-            else:
-                improved["system_prompt"] = new_prompt
-        return create_patched_agent(self.agent_fn, original_prompts, improved)
+            improved["system_prompt"] = new_prompt
+        return create_patched_agent(self.agent_fn, original_copy, improved)
 
     async def _run_and_evaluate(
         self,

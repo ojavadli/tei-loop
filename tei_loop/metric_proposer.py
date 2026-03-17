@@ -1,7 +1,7 @@
 """
 Metric proposer for task-specific objective metrics.
 
-Proposes measurable metrics for prompt output quality.
+Proposes measurable metrics for prompt output quality, for prompt output quality.
 """
 
 from __future__ import annotations
@@ -24,8 +24,16 @@ class MetricProposer:
     ) -> list[MetricFormula]:
         system_prompt = """You are an expert at designing objective metrics for evaluating AI agent outputs.
 Your task is to propose task-specific metrics that measure how well a prompt's OUTPUT achieves the agent's goal.
-Each metric must be measurable: either by code (string matching, counting, regex) or by an LLM judge.
-Be specific and actionable. Avoid vague metrics like "quality" or "helpfulness"."""
+Propose metrics that can be measured OBJECTIVELY by CODE, not by LLM judgment. Examples of good objective metrics:
+- Section Coverage: count(expected_sections_found) / total_expected_sections
+- Keyword Presence: count(required_keywords_in_output) / total_required_keywords
+- Length Ratio: output_length / input_length (penalize too short or too long)
+- Format Compliance: check if output follows required structure (JSON, sections, etc.)
+- Entity Retention: count(input_entities_in_output) / total_input_entities
+- Completeness: count(answered_questions) / total_questions
+
+Do NOT propose metrics that require subjective LLM judgment like 'quality score' or 'coherence'. Every metric must be computable by string matching, counting, or ratio calculation.
+Be specific and actionable."""
 
         checkpoint_summary = ""
         if checkpoints:
@@ -47,7 +55,15 @@ PROMPT TEXT (the prompt being evaluated):
 {checkpoint_summary}
 
 Propose 3-5 objective metrics that measure how well the prompt's OUTPUT achieves the task goal.
-Each metric should be measurable - either by code (string matching, counting, regex) or by LLM judge.
+Propose metrics that can be measured OBJECTIVELY by CODE, not by LLM judgment. Examples of good objective metrics:
+- Section Coverage: count(expected_sections_found) / total_expected_sections
+- Keyword Presence: count(required_keywords_in_output) / total_required_keywords
+- Length Ratio: output_length / input_length (penalize too short or too long)
+- Format Compliance: check if output follows required structure (JSON, sections, etc.)
+- Entity Retention: count(input_entities_in_output) / total_input_entities
+- Completeness: count(answered_questions) / total_questions
+
+Do NOT propose metrics that require subjective LLM judgment like 'quality score' or 'coherence'. Every metric must be computable by string matching, counting, or ratio calculation.
 Include an explicit formula for each metric.
 
 Respond with valid JSON only:
@@ -57,7 +73,7 @@ Respond with valid JSON only:
       "name": "Metric Name",
       "description": "What this metric measures and why it matters",
       "formula": "Human-readable formula, e.g. 'count(required_topics_in_output) / total_required_topics'",
-      "measurement_method": "code_based" or "llm_judge" or "hybrid"
+      "measurement_method": "code_based"
     }}
   ]
 }}"""
@@ -85,9 +101,9 @@ Respond with valid JSON only:
             name = m.get("name", f"Metric_{i+1}")
             description = m.get("description", "")
             formula = m.get("formula", "")
-            method = m.get("measurement_method", "llm_judge")
+            method = m.get("measurement_method", "code_based")
             if method not in ("code_based", "llm_judge", "hybrid"):
-                method = "llm_judge"
+                method = "code_based"
             formulas.append(
                 MetricFormula(
                     name=name,

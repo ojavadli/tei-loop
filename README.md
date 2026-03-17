@@ -22,7 +22,7 @@ TEI does the rest — 8 steps, fully automated with interactive approval gates.
 | 2. Baseline Evaluation | Runs agent, scores 4 dimensions. "Before" snapshot. |
 | 3. Structural Fixes | Proposes code fixes in terminal. You approve: Y/N/Propose Other. |
 | 4. Middle Evaluation | Re-evaluates after fixes. Shows delta. |
-| 5. Propose Metrics | Proposes task-specific objective metrics. You approve: Y/N/Propose Other. |
+| 5. Propose Metrics | Proposes task-specific objective metrics You approve: Y/N/Propose Other. |
 | 6. Baseline Efficiency | Measures current prompts against confirmed metrics. |
 | 7. Iterative Optimization | 20-50 iterations: mutate prompts, track Pareto front, select best. |
 | 8. Final Report | Baseline -> Middle -> Final comparison. Applies best prompt to source. |

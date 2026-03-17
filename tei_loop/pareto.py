@@ -1,5 +1,5 @@
 """
-Pareto front management for iterative multi-candidate prompt optimization.
+Pareto front management for multi-candidate prompt optimization.
 """
 
 from __future__ import annotations
