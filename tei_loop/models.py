@@ -292,6 +292,7 @@ class MetricFormula(BaseModel):
     metric_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:16])
     name: str
     description: str
+    rationale: str = ""
     formula: str  # human-readable formula string
     measurement_method: str = "llm_judge"  # llm_judge/code_based/hybrid
     weight: float = 0.25

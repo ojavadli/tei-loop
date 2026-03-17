@@ -72,6 +72,7 @@ Respond with valid JSON only:
     {{
       "name": "Metric Name",
       "description": "What this metric measures and why it matters",
+      "rationale": "Why you are proposing this metric — what specific weakness or pattern in the agent's code/prompt led you to suggest it",
       "formula": "Human-readable formula, e.g. 'count(required_topics_in_output) / total_required_topics'",
       "measurement_method": "code_based"
     }}
@@ -100,6 +101,7 @@ Respond with valid JSON only:
                 continue
             name = m.get("name", f"Metric_{i+1}")
             description = m.get("description", "")
+            rationale = m.get("rationale", "")
             formula = m.get("formula", "")
             method = m.get("measurement_method", "code_based")
             if method not in ("code_based", "llm_judge", "hybrid"):
@@ -108,6 +110,7 @@ Respond with valid JSON only:
                 MetricFormula(
                     name=name,
                     description=description,
+                    rationale=rationale,
                     formula=formula,
                     measurement_method=method,
                     weight=default_weight,

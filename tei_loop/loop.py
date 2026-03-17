@@ -441,6 +441,8 @@ class TEILoop:
             for i, metric in enumerate(proposed_metrics, 1):
                 print(f"  {BOLD}[{i}] {metric.name}{RESET}")
                 print(f"      {metric.description}")
+                if metric.rationale:
+                    print(f"      {DIM}Rationale: {metric.rationale}{RESET}")
                 print(f"      Formula: {CYAN}{metric.formula}{RESET}")
                 print(f"      Method:  code_based")
 
