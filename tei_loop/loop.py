@@ -539,12 +539,20 @@ class TEILoop:
             print(f"  Optimizing prompt | Budget: {self._num_iterations} iterations")
             print(f"  Candidate pool starts with 1\n")
 
+            ref_eval = middle_eval if middle_eval else baseline_eval
+            ref_dim_scores = {
+                dim: res.score
+                for dim, res in ref_eval.dimension_scores.items()
+            }
+
             optimizer = PromptOptimizer(
                 improve_llm=self._improve_llm,
                 eval_llm=self._eval_llm,
                 metrics=confirmed_metrics,
                 agent_fn=self._agent.agent_fn,
                 agent_file=self._agent_file,
+                dim_evaluator=self._evaluator,
+                reference_dim_scores=ref_dim_scores,
             )
 
             optimization_result = await optimizer.optimize(
