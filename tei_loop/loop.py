@@ -561,58 +561,68 @@ class TEILoop:
         # -------- Step 8: Final checkmark report --------
         print(f"\n{BOLD}Step 8: Final checkmark report...{RESET}")
 
-        use_optimized = False
-        if (
-            optimization_result
-            and optimization_result.best_candidate
-            and optimization_result.best_candidate.composite_score > baseline_composite
-        ):
-            use_optimized = True
+        reference_eval = middle_eval if middle_eval else baseline_eval
+        ref_score = reference_eval.aggregate_score
 
-        if use_optimized:
-            print(f"  Running final evaluation with optimized prompt...", end="", flush=True)
+        chosen_prompt = None
+        final_eval = None
+        final_trace = None
+
+        if optimization_result and optimization_result.pareto_front:
             from .prompt_improver import create_patched_agent
 
-            best_prompt = optimization_result.best_candidate.prompt_text
-            original_prompts = dict(prompts_data)
-            improved_prompts = dict(prompts_data)
-            if "system_prompt" in prompts_data:
-                improved_prompts["system_prompt"] = best_prompt
-            else:
-                improved_prompts["user_prompt_template"] = best_prompt
-            patched_fn = create_patched_agent(
-                self._agent.agent_fn, original_prompts, improved_prompts,
-                agent_file=self._agent_file,
+            ranked = sorted(
+                [c for c in optimization_result.pareto_front
+                 if c.composite_score > baseline_composite],
+                key=lambda c: c.composite_score,
+                reverse=True,
             )
-            final_trace = await run_and_trace(patched_fn, query, context=context)
 
-            if self._work_dir:
-                opt_path = self._work_dir / "optimized_prompt.txt"
-                opt_path.write_text(best_prompt, encoding="utf-8")
-                print(f"  Optimized prompt saved to: TEI-work/optimized_prompt.txt")
-                print(f"  {DIM}Original agent files are untouched.{RESET}")
-        else:
-            if optimization_result and optimization_result.best_candidate:
+            for rank, candidate in enumerate(ranked):
                 print(
-                    f"  {YELLOW}Optimized prompt did not improve composite score "
-                    f"({optimization_result.best_candidate.composite_score:.1f}% vs "
-                    f"{baseline_composite:.1f}% baseline). Keeping original.{RESET}"
+                    f"  Testing Pareto candidate P{candidate.iteration} "
+                    f"(composite: {candidate.composite_score:.1f}%)...",
+                    end="", flush=True,
+                )
+                original_prompts = dict(prompts_data)
+                improved_prompts = dict(prompts_data)
+                if "system_prompt" in prompts_data:
+                    improved_prompts["system_prompt"] = candidate.prompt_text
+                else:
+                    improved_prompts["user_prompt_template"] = candidate.prompt_text
+                patched_fn = create_patched_agent(
+                    self._agent.agent_fn, original_prompts, improved_prompts,
+                    agent_file=self._agent_file,
+                )
+                cand_trace = await run_and_trace(patched_fn, query, context=context)
+                cand_eval = await self._evaluator.evaluate(cand_trace)
+
+                if cand_eval.aggregate_score >= ref_score:
+                    print(
+                        f" {GREEN}{cand_eval.aggregate_score:.3f} >= {ref_score:.3f} -- accepted!{RESET}"
+                    )
+                    chosen_prompt = candidate.prompt_text
+                    final_eval = cand_eval
+                    final_trace = cand_trace
+                    break
+                else:
+                    print(
+                        f" {YELLOW}{cand_eval.aggregate_score:.3f} < {ref_score:.3f} -- skipped{RESET}"
+                    )
+
+        if chosen_prompt and self._work_dir:
+            opt_path = self._work_dir / "optimized_prompt.txt"
+            opt_path.write_text(chosen_prompt, encoding="utf-8")
+            print(f"  Optimized prompt saved to: TEI-work/optimized_prompt.txt")
+            print(f"  {DIM}Original agent files are untouched.{RESET}")
+
+        if final_eval is None:
+            if optimization_result and optimization_result.pareto_front:
+                print(
+                    f"  {YELLOW}No Pareto candidate improved 4-dimension score. "
+                    f"Keeping structurally-fixed agent.{RESET}"
                 )
             print(f"  Running final evaluation with current agent...", end="", flush=True)
-            final_trace = await run_and_trace(
-                self._agent.agent_fn, query, context=context,
-            )
-
-        final_eval = await self._evaluator.evaluate(final_trace)
-
-        reference_eval = middle_eval if middle_eval else baseline_eval
-        if use_optimized and final_eval.aggregate_score < reference_eval.aggregate_score:
-            print(f" done")
-            print(
-                f"  {YELLOW}Optimized prompt regressed 4-dimension score "
-                f"({final_eval.aggregate_score:.3f} vs {reference_eval.aggregate_score:.3f}). "
-                f"Reverting to pre-optimization agent.{RESET}"
-            )
             final_trace = await run_and_trace(
                 self._agent.agent_fn, query, context=context,
             )
