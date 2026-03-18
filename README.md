@@ -7,14 +7,12 @@ TEI connects structured evaluation to automated improvement: it identifies *what
 ## Quick Start
 
 ```bash
-pip install tei-loop[openai]    # or [anthropic] or [google]
+# One command — install + run:
+export OPENAI_API_KEY="sk-..."   # or ANTHROPIC_API_KEY or GOOGLE_API_KEY
+pip3 install git+https://github.com/ojavadli/tei-loop.git && python3 -m tei_loop your_agent.py
 ```
 
-```bash
-python3 -m tei_loop your_agent.py
-```
-
-TEI auto-detects your agent function, runs the 8-step pipeline, and saves results to `tei-results/`.
+TEI auto-detects your agent function, clones the file, runs the 8-step pipeline, and saves results to `tei-results/`. Your original file is never modified.
 
 ## The 8-Step Pipeline
 
@@ -53,10 +51,11 @@ Each dimension is scored 0.00–1.00 by a dedicated judge prompt. The aggregate 
 
 ### Structural Fix Safety
 
-- TEI operates on a **working copy** (`TEI-work/`), never the original files
-- Each patch is evaluated: if the score drops, **the patch is automatically reverted**
+- TEI **clones** the original agent file (e.g. `agent.py` → `agentCLONE1.py`) in the same directory. The original is never touched.
+- If a clone already exists, TEI auto-increments (`agentCLONE2.py`, etc.)
+- After each patch, the modified clone is **reloaded and re-executed** to verify the fix actually works
+- If the score drops, **the patch is automatically reverted**
 - Only the best-performing version is kept across all iterations
-- In interactive mode, you approve each fix with `Y/N/Propose Other`
 
 ### Prompt Optimization
 
@@ -143,6 +142,13 @@ Known limitations:
 - LLM-as-judge variance means scores can fluctuate between runs
 - Structural fixes are most effective on simple, single-file agents
 - Prompt optimization quality depends heavily on the metrics proposed
+
+## How TEI Protects Your Code
+
+TEI never modifies your original agent file. It creates a clone (`agentCLONE1.py`) in the same directory and experiments only on the clone. Each structural fix is applied, **reloaded at runtime**, and evaluated. If it doesn't improve the score, it's rolled back instantly. After optimization, you get:
+- The improved clone file with structural fixes
+- An optimized prompt saved to `TEI-work/optimized_prompt.txt`
+- Full JSON results in `tei-results/`
 
 ## License
 
