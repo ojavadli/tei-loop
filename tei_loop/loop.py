@@ -660,9 +660,20 @@ class TEILoop:
                 cand_trace = await run_and_trace(patched_fn, query, context=context)
                 cand_eval = await self._evaluator.evaluate(cand_trace)
 
-                if cand_eval.aggregate_score >= ref_score:
+                any_dim_regressed = False
+                regression_dims = []
+                for dim in reference_eval.dimension_scores:
+                    ref_ds = reference_eval.dimension_scores[dim]
+                    cand_ds = cand_eval.dimension_scores.get(dim)
+                    if cand_ds and cand_ds.score < ref_ds.score:
+                        any_dim_regressed = True
+                        regression_dims.append(
+                            f"{_dim_label(dim)} {ref_ds.score:.2f}->{cand_ds.score:.2f}"
+                        )
+
+                if not any_dim_regressed:
                     print(
-                        f" {GREEN}{cand_eval.aggregate_score:.3f} >= {ref_score:.3f} -- accepted!{RESET}"
+                        f" {GREEN}{cand_eval.aggregate_score:.3f} -- no dimension regressed, accepted!{RESET}"
                     )
                     chosen_prompt = candidate.prompt_text
                     final_eval = cand_eval
@@ -670,7 +681,7 @@ class TEILoop:
                     break
                 else:
                     print(
-                        f" {YELLOW}{cand_eval.aggregate_score:.3f} < {ref_score:.3f} -- skipped{RESET}"
+                        f" {YELLOW}regressed [{', '.join(regression_dims)}] -- skipped{RESET}"
                     )
 
         if chosen_prompt and self._work_dir:
@@ -682,14 +693,11 @@ class TEILoop:
         if final_eval is None:
             if optimization_result and optimization_result.pareto_front:
                 print(
-                    f"  {YELLOW}No Pareto candidate improved 4-dimension score. "
+                    f"  {YELLOW}No Pareto candidate passed per-dimension safety check. "
                     f"Keeping structurally-fixed agent.{RESET}"
                 )
-            print(f"  Running final evaluation with current agent...", end="", flush=True)
-            final_trace = await run_and_trace(
-                self._agent.agent_fn, query, context=context,
-            )
-            final_eval = await self._evaluator.evaluate(final_trace)
+            final_eval = reference_eval
+            print(f"  Final score = reference ({reference_eval.aggregate_score:.3f}), no regression possible.")
 
         result.final_eval = final_eval
         print(f" done\n")
