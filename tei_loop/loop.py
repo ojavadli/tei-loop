@@ -446,18 +446,37 @@ class TEILoop:
         )
 
         confirmed_metrics: list[MetricFormula] = []
-        if proposed_metrics:
-            print(
-                f"  TEI analyzed your agent and proposes "
-                f"{BOLD}{len(proposed_metrics)}{RESET} metrics:\n"
-            )
-            for i, metric in enumerate(proposed_metrics, 1):
-                print(f"  {BOLD}[{i}] {metric.name}{RESET}")
+        metric_counter = 0
+        batch_round = 0
+        skip_to_step6 = False
+
+        while not skip_to_step6:
+            if batch_round == 0:
+                metrics_batch = proposed_metrics
+            else:
+                print(f"\n  {DIM}Proposing more metrics...{RESET}\n")
+                metrics_batch = await proposer.propose_metrics(
+                    checkpoints, agent_source, prompt_text,
+                )
+
+            if not metrics_batch:
+                print(f"  {YELLOW}No more metrics to propose.{RESET}")
+                break
+
+            if batch_round == 0:
+                print(
+                    f"  TEI analyzed your agent and proposes "
+                    f"{BOLD}{len(metrics_batch)}{RESET} metrics:\n"
+                )
+
+            for metric in metrics_batch:
+                metric_counter += 1
+                print(f"  {BOLD}[{metric_counter}] {metric.name}{RESET}")
                 print(f"      {metric.description}")
                 if metric.rationale:
                     print(f"      {DIM}Rationale: {metric.rationale}{RESET}")
                 print(f"      Formula: {CYAN}{metric.formula}{RESET}")
-                print(f"      Method:  code_based")
+                print(f"      Method:  {metric.measurement_method}")
                 print()
                 print(f"      {BOLD}Choose:{RESET}")
                 print(f"        1) Accept & review next metric")
@@ -481,12 +500,13 @@ class TEILoop:
                 print()
 
                 if raw in ("2", "4"):
-                    remaining = proposed_metrics[i:]
-                    if remaining:
-                        print(f"      {DIM}Skipping remaining {len(remaining)} metric(s)...{RESET}\n")
+                    skip_to_step6 = True
                     break
-        else:
-            print(f"  {YELLOW}No metrics proposed (limited agent source available).{RESET}")
+
+            batch_round += 1
+            if not skip_to_step6 and batch_round >= 5:
+                print(f"  {DIM}Maximum proposal rounds reached.{RESET}")
+                break
 
         if confirmed_metrics:
             weights = await proposer.propose_composite_weights(confirmed_metrics)

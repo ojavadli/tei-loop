@@ -22,17 +22,18 @@ class MetricProposer:
         agent_source: str,
         prompt_text: str,
     ) -> list[MetricFormula]:
-        system_prompt = """You are an expert at designing objective metrics for evaluating AI agent outputs.
-Your task is to propose task-specific metrics that measure how well a prompt's OUTPUT achieves the agent's goal.
-Propose metrics that can be measured OBJECTIVELY by CODE, not by LLM judgment. Examples of good objective metrics:
-- Section Coverage: count(expected_sections_found) / total_expected_sections
-- Keyword Presence: count(required_keywords_in_output) / total_required_keywords
-- Length Ratio: output_length / input_length (penalize too short or too long)
-- Format Compliance: check if output follows required structure (JSON, sections, etc.)
-- Entity Retention: count(input_entities_in_output) / total_input_entities
-- Completeness: count(answered_questions) / total_questions
+        system_prompt = """You are an expert at designing meaningful metrics for evaluating AI agent outputs.
+Your task is to propose task-specific metrics that measure OUTPUT QUALITY from the END USER's perspective.
 
-Do NOT propose metrics that require subjective LLM judgment like 'quality score' or 'coherence'. Every metric must be computable by string matching, counting, or ratio calculation.
+Focus on what matters to the person receiving the agent's response:
+- Did the response actually solve the user's problem?
+- Was empathy and tone appropriate?
+- Were concrete, actionable next steps provided?
+- Was the response complete (not leaving the user hanging)?
+- Was information accurate and grounded in real data?
+
+Metrics can be measured by LLM judgment (preferred for quality) or by code (for structural checks).
+Mix both types: at least 2 LLM-judged metrics for quality, and up to 2 code-based for structure.
 Be specific and actionable."""
 
         checkpoint_summary = ""
@@ -54,27 +55,27 @@ PROMPT TEXT (the prompt being evaluated):
 ```
 {checkpoint_summary}
 
-Propose 3-5 objective metrics that measure how well the prompt's OUTPUT achieves the task goal.
-Propose metrics that can be measured OBJECTIVELY by CODE, not by LLM judgment. Examples of good objective metrics:
-- Section Coverage: count(expected_sections_found) / total_expected_sections
-- Keyword Presence: count(required_keywords_in_output) / total_required_keywords
-- Length Ratio: output_length / input_length (penalize too short or too long)
-- Format Compliance: check if output follows required structure (JSON, sections, etc.)
-- Entity Retention: count(input_entities_in_output) / total_input_entities
-- Completeness: count(answered_questions) / total_questions
+Propose 3-5 metrics that measure how well the agent's OUTPUT serves the end user.
+Focus on outcome quality, not internal tool mechanics. Good examples:
+- "Problem Resolution Completeness": Does the response give the user a clear path to solving their issue?
+- "Empathy & Acknowledgment": Does the agent acknowledge the user's frustration/situation before jumping to solutions?
+- "Actionable Next Steps": Does the response end with specific things the user can do?
+- "Data Accuracy": Are facts in the response grounded in actual data (not fabricated)?
+- "Response Completeness": Does the response address all parts of the user's question?
 
-Do NOT propose metrics that require subjective LLM judgment like 'quality score' or 'coherence'. Every metric must be computable by string matching, counting, or ratio calculation.
-Include an explicit formula for each metric.
+Each metric should use "llm_judge" (LLM evaluates quality) or "code_based" (string matching).
+Use "llm_judge" for subjective quality metrics, "code_based" for structural/factual checks.
+Include an explicit formula or evaluation criteria for each metric.
 
 Respond with valid JSON only:
 {{
   "metrics": [
     {{
       "name": "Metric Name",
-      "description": "What this metric measures and why it matters",
-      "rationale": "Why you are proposing this metric — what specific weakness or pattern in the agent's code/prompt led you to suggest it",
-      "formula": "Human-readable formula, e.g. 'count(required_topics_in_output) / total_required_topics'",
-      "measurement_method": "code_based"
+      "description": "What this metric measures and why it matters for the end user",
+      "rationale": "Why you are proposing this metric — what specific weakness or pattern in the agent's output led you to suggest it",
+      "formula": "Evaluation criteria or formula",
+      "measurement_method": "llm_judge or code_based"
     }}
   ]
 }}"""
