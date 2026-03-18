@@ -55,16 +55,22 @@ PROMPT TEXT (the prompt being evaluated):
 ```
 {checkpoint_summary}
 
-Propose 3-5 metrics that measure how well the agent's OUTPUT serves the end user.
-Focus on outcome quality, not internal tool mechanics. Good examples:
-- "Problem Resolution Completeness": Does the response give the user a clear path to solving their issue?
-- "Empathy & Acknowledgment": Does the agent acknowledge the user's frustration/situation before jumping to solutions?
-- "Actionable Next Steps": Does the response end with specific things the user can do?
-- "Data Accuracy": Are facts in the response grounded in actual data (not fabricated)?
-- "Response Completeness": Does the response address all parts of the user's question?
+Propose 5 metrics that measure how well the agent's OUTPUT serves the end user.
+Focus on outcome quality, not internal tool mechanics.
 
-Each metric should use "llm_judge" (LLM evaluates quality) or "code_based" (string matching).
+IMPORTANT: Derive metrics from the SPECIFIC agent and task above. Do NOT use generic templates.
+Look at the actual prompt text, the domain the agent operates in, and what specific quality
+issues could arise. For example:
+- If the agent handles orders, propose metrics about order-data accuracy and completeness
+- If the agent summarizes, propose metrics about coverage, conciseness, factual grounding
+- If the agent classifies, propose metrics about label accuracy and confidence calibration
+
+Each metric MUST have a clear pass/fail criterion or scoring rubric. Avoid vague metrics
+like "quality" or "helpfulness" — be specific about what is measured and how.
+
+Each metric should use "llm_judge" (LLM evaluates quality) or "code_based" (string matching / presence checks).
 Use "llm_judge" for subjective quality metrics, "code_based" for structural/factual checks.
+Include at least 2 "code_based" metrics and at least 2 "llm_judge" metrics.
 Include an explicit formula or evaluation criteria for each metric.
 
 Respond with valid JSON only:

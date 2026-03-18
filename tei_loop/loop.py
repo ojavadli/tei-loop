@@ -500,12 +500,15 @@ class TEILoop:
                 print(f"        3) Reject & review next metric")
                 print(f"        4) Reject & skip to Step 6")
 
-                try:
-                    raw = input(f"      Your choice [1/2/3/4]: ").strip()
-                except (EOFError, KeyboardInterrupt):
-                    raw = "1"
-                if raw not in ("1", "2", "3", "4"):
-                    raw = "1"
+                if self._interactive:
+                    try:
+                        raw = input(f"      Your choice [1/2/3/4]: ").strip()
+                    except (EOFError, KeyboardInterrupt):
+                        raw = "1"
+                    if raw not in ("1", "2", "3", "4"):
+                        raw = "1"
+                else:
+                    raw = "2" if metric == metrics_batch[-1] else "1"
 
                 if raw in ("1", "2"):
                     metric.approved = True

@@ -56,6 +56,7 @@ class PromptOptimizer:
         )
         front = [p0]
         metric_history = [dict(p0.metric_scores)]
+        saved_baseline_scores = dict(p0.metric_scores)
 
         for i in range(1, num_iterations + 1):
             use_merge = len(front) >= 2 and self.rng.random() < 0.30
@@ -106,13 +107,12 @@ class PromptOptimizer:
                 print(f"    {strategy_name.capitalize()} from P{parent_a.iteration}. {ref_preview}")
 
         best = select_best(front)
-        baseline_scores = front[0].metric_scores if front else {}
         return OptimizationResult(
             total_iterations=num_iterations,
             pareto_front=front,
             best_candidate=best,
             metric_history=metric_history,
-            baseline_scores=baseline_scores,
+            baseline_scores=saved_baseline_scores,
             final_scores=best.metric_scores,
         )
 

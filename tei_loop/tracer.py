@@ -63,6 +63,20 @@ class TEITracer:
         )
 
 
+def _run_with_tracer(
+    tracer: "TEITracer",
+    agent_fn: Callable,
+    query: Any,
+    ctx: dict[str, Any],
+) -> Any:
+    """Run a sync agent in a worker thread with the tracer propagated."""
+    set_active_tracer(tracer)
+    try:
+        return agent_fn(query, **ctx) if ctx else agent_fn(query)
+    finally:
+        clear_active_tracer()
+
+
 async def run_and_trace(
     agent_fn: Callable,
     query: Any,
@@ -78,6 +92,7 @@ async def run_and_trace(
         tracer = TEITracer()
 
     tracer.start()
+    set_active_tracer(tracer)
     ctx = context or {}
 
     start = time.time()
@@ -89,11 +104,13 @@ async def run_and_trace(
             output = await agent_fn(query, **ctx) if ctx else await agent_fn(query)
         else:
             output = await asyncio.to_thread(
-                agent_fn, query, **ctx
-            ) if ctx else await asyncio.to_thread(agent_fn, query)
+                _run_with_tracer, tracer, agent_fn, query, ctx
+            )
     except Exception as e:
         error_msg = f"{type(e).__name__}: {e}"
         output = None
+    finally:
+        clear_active_tracer()
 
     duration_ms = (time.time() - start) * 1000
     tracer.add_step(
