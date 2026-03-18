@@ -1,4 +1,4 @@
-from .models import MetricFormula, MetricResult, ParetoCandidate, OptimizationResult, Trace, EvalResult
+from .models import MetricFormula, MetricResult, ParetoCandidate, OptimizationResult, Trace
 from .llm_provider import BaseLLMProvider
 from .pareto import update_pareto_front, sample_from_front, sample_pair_from_front, compute_composite, select_best
 from .prompt_evaluator import PromptEvaluator
@@ -7,10 +7,7 @@ from .prompt_improver import extract_prompts, create_patched_agent
 import random
 import json
 import time
-from typing import Any, Callable, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .evaluator import TEIEvaluator
+from typing import Any, Callable, Optional
 
 
 class PromptOptimizer:
@@ -21,8 +18,6 @@ class PromptOptimizer:
         metrics: list[MetricFormula],
         agent_fn: Callable,
         agent_file: Optional[str] = None,
-        dim_evaluator: Optional["TEIEvaluator"] = None,
-        reference_dim_scores: Optional[dict[str, float]] = None,
     ):
         self.improve_llm = improve_llm
         self.eval_llm = eval_llm
@@ -30,8 +25,6 @@ class PromptOptimizer:
         self.agent_fn = agent_fn
         self.agent_file = agent_file
         self.prompt_evaluator = PromptEvaluator(eval_llm)
-        self.dim_evaluator = dim_evaluator
-        self.reference_dim_scores = reference_dim_scores or {}
         self.rng = random.Random(42)
 
     async def optimize(
@@ -95,35 +88,21 @@ class PromptOptimizer:
                 strategy=strategy_name,
                 reflection="",
             )
-
-            dim_rejected = False
-            if self.dim_evaluator and self.reference_dim_scores:
-                sample_trace = batch_traces[0] if batch_traces else None
-                if sample_trace:
-                    dim_eval = await self.dim_evaluator.evaluate(sample_trace)
-                    for dim_name, ref_score in self.reference_dim_scores.items():
-                        new_score = dim_eval.dimension_scores.get(dim_name, EvalResult(dimension=dim_name, score=0.0, passed=False, threshold=0.7)).score
-                        if new_score < ref_score:
-                            dim_rejected = True
-                            break
-
             old_len = len(front)
-            if not dim_rejected:
-                front = update_pareto_front(front, new_candidate)
-            added = len(front) > old_len and not dim_rejected
+            front = update_pareto_front(front, new_candidate)
+            added = len(front) > old_len
             metric_history.append(metric_scores_raw)
 
             if verbose:
                 abbrevs = self._metric_abbrevs(metric_scores_raw, front[0].metric_scores if front else {})
                 delta_str = ", ".join(abbrevs) if abbrevs else ""
-                dim_tag = " \033[93m[4-dim regression -- rejected]\033[0m" if dim_rejected else ""
                 add_str = f" new Pareto candidate ({delta_str})" if added else ""
                 ref_preview = ""
                 if strategy_name == "mutation":
                     ref_preview = new_prompt[:80].replace("\n", " ") + "..." if len(new_prompt) > 80 else new_prompt[:80]
                 else:
                     ref_preview = f"merged from {parent_a.iteration} + {parent_b.iteration}"
-                print(f"  Iter {i:2}/{num_iterations} | Comp: {comp_new:.1f}% | Pool: {len(front)}{add_str}{dim_tag}")
+                print(f"  Iter {i:2}/{num_iterations} | Comp: {comp_new:.1f}% | Pool: {len(front)}{add_str}")
                 print(f"    {strategy_name.capitalize()} from P{parent_a.iteration}. {ref_preview}")
 
         best = select_best(front)

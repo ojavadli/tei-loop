@@ -147,24 +147,37 @@ class TEILoop:
             agent_path = Path(self._agent_file).resolve()
             work_dir = agent_path.parent / "TEI-work"
             work_dir.mkdir(parents=True, exist_ok=True)
-            ts_label = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            print(f"  Copying agent files to TEI-work/ ({ts_label})...")
-
             pre_scan_files, _ = scan_agent(self._agent_file)
             if not pre_scan_files:
                 pre_scan_files = [str(agent_path)]
 
+            clone_dir = agent_path.resolve().parent
+            main_src = Path(pre_scan_files[0]).resolve()
+            stem = main_src.stem
+            suffix = main_src.suffix
+
+            clone_num = 1
+            while (clone_dir / f"{stem}CLONE{clone_num}{suffix}").exists():
+                clone_num += 1
+            clone_name = f"{stem}CLONE{clone_num}{suffix}"
+            clone_path = clone_dir / clone_name
+
+            print(f"  Cloning agent → {clone_name}")
             for fp in pre_scan_files:
                 src = Path(fp).resolve()
-                dst = work_dir / src.name
-                shutil.copy2(str(src), str(dst))
-                print(f"    Copied: {src.name}")
+                if src == main_src:
+                    shutil.copy2(str(src), str(clone_path))
+                    print(f"    {src.name} → {clone_name}")
+                else:
+                    dst = work_dir / src.name
+                    shutil.copy2(str(src), str(dst))
+                    print(f"    Copied: {src.name} → TEI-work/")
 
             self._original_agent_file = self._agent_file
-            self._agent_file = str(work_dir / agent_path.name)
+            self._agent_file = str(clone_path)
             self._work_dir = work_dir
-            print(f"  Working copy: {self._agent_file}")
-            print(f"  {GREEN}Originals are safe. TEI operates on the copy.{RESET}\n")
+            print(f"  Working copy: {clone_path}")
+            print(f"  {GREEN}Original {main_src.name} is untouched. TEI operates on {clone_name}.{RESET}\n")
 
         # -------- Step 1: Scan agent files --------
         print(f"{BOLD}Step 1: Scanning agent files...{RESET}")
