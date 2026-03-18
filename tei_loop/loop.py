@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import importlib.util
+import inspect
 import json
 import shutil
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable, Optional
-from pathlib import Path
 
 from .models import (
     Dimension,
@@ -317,35 +319,44 @@ class TEILoop:
 
                 reverted_this = False
                 if applied_ok:
-                    iter_trace = await run_and_trace(
-                        self._agent.agent_fn, query, context=context,
-                    )
-                    current_eval = await self._evaluator.evaluate(iter_trace)
-                    current_cp = self._map_checkpoint_results(
-                        checkpoints, current_eval, "middle",
-                    )
-
-                    if current_eval.aggregate_score > best_eval.aggregate_score:
-                        best_eval = current_eval
-                        best_fix_description = fix.proposed_fix
-                        for fp in agent_files:
-                            try:
-                                best_snapshots[fp] = Path(fp).read_text(
-                                    encoding="utf-8", errors="replace"
-                                )
-                            except OSError:
-                                pass
-                    else:
+                    reloaded = self._reload_agent_fn()
+                    if reloaded is None:
                         reverted_this = True
                         for fp, content in pre_patch_snapshots.items():
                             try:
                                 Path(fp).write_text(content, encoding="utf-8")
                             except OSError:
                                 pass
-                        current_eval = best_eval
+                    else:
+                        iter_trace = await run_and_trace(
+                            reloaded, query, context=context,
+                        )
+                        current_eval = await self._evaluator.evaluate(iter_trace)
                         current_cp = self._map_checkpoint_results(
                             checkpoints, current_eval, "middle",
                         )
+
+                        if current_eval.aggregate_score > best_eval.aggregate_score:
+                            best_eval = current_eval
+                            best_fix_description = fix.proposed_fix
+                            for fp in agent_files:
+                                try:
+                                    best_snapshots[fp] = Path(fp).read_text(
+                                        encoding="utf-8", errors="replace"
+                                    )
+                                except OSError:
+                                    pass
+                        else:
+                            reverted_this = True
+                            for fp, content in pre_patch_snapshots.items():
+                                try:
+                                    Path(fp).write_text(content, encoding="utf-8")
+                                except OSError:
+                                    pass
+                            current_eval = best_eval
+                            current_cp = self._map_checkpoint_results(
+                                checkpoints, current_eval, "middle",
+                            )
 
                 delta = current_eval.aggregate_score - baseline_eval.aggregate_score
                 color = GREEN if delta > 0 else YELLOW if delta == 0 else RED
@@ -377,6 +388,11 @@ class TEILoop:
                     pass
             current_eval = best_eval
             middle_eval = current_eval
+
+            if best_eval.aggregate_score > baseline_eval.aggregate_score:
+                _best_reloaded = self._reload_agent_fn()
+                if _best_reloaded:
+                    self._agent = GenericAdapter(_best_reloaded)
 
             batch_delta = middle_eval.aggregate_score - baseline_eval.aggregate_score
             best_delta = best_eval.aggregate_score - baseline_eval.aggregate_score
@@ -786,6 +802,75 @@ class TEILoop:
         if self._agent_file:
             return scan_agent(self._agent_file)
         return [], []
+
+    def _reload_agent_fn(self) -> Optional[Callable]:
+        """Reload the agent function from the modified clone file on disk.
+
+        After the structural fixer patches the clone file, we re-import the
+        module so the patched code actually executes during evaluation.
+        """
+        if not self._agent_file:
+            return None
+
+        agent_path = Path(self._agent_file)
+        if not agent_path.exists():
+            return None
+
+        mod_name = f"_tei_reload_{agent_path.stem}_{int(time.time() * 1e6)}"
+
+        parent_dir = str(agent_path.parent)
+        path_added = parent_dir not in sys.path
+        if path_added:
+            sys.path.insert(0, parent_dir)
+
+        try:
+            spec = importlib.util.spec_from_file_location(mod_name, str(agent_path))
+            if spec is None or spec.loader is None:
+                return None
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception:
+            return None
+        finally:
+            if path_added and parent_dir in sys.path:
+                sys.path.remove(parent_dir)
+
+        orig_name = getattr(self._agent.agent_fn, "__name__", "")
+        fn = getattr(module, orig_name, None)
+        if fn and callable(fn) and not isinstance(fn, type):
+            return fn
+
+        for name in (
+            "run_agent", "agent", "main", "run", "handle", "process",
+            "customer_support", "chat", "generate", "respond", "execute",
+            "invoke", "call_agent", "ask",
+        ):
+            fn = getattr(module, name, None)
+            if fn and callable(fn) and not isinstance(fn, type):
+                return fn
+
+        for attr_name in dir(module):
+            if attr_name.startswith("_"):
+                continue
+            obj = getattr(module, attr_name)
+            if not callable(obj) or isinstance(obj, type):
+                continue
+            try:
+                sig = inspect.signature(obj)
+                required = [
+                    p for p in sig.parameters.values()
+                    if p.default is inspect.Parameter.empty
+                    and p.kind in (
+                        inspect.Parameter.POSITIONAL_ONLY,
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    )
+                ]
+                if len(required) == 1:
+                    return obj
+            except (ValueError, TypeError):
+                continue
+
+        return None
 
     def _map_checkpoint_results(
         self,
