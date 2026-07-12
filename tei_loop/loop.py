@@ -104,8 +104,12 @@ class TEILoop:
         num_iterations: int = 30,
         verbose: bool = True,
         interactive: bool = True,
+        optimizer_mode: str = "pareto",
+        cubic_config: Optional[Any] = None,   # tei_loop.cubic.CubicConfig
     ):
         self.config = config or TEIConfig()
+        self._optimizer_mode = optimizer_mode
+        self._cubic_config = cubic_config
 
         if provider != "auto":
             self.config.llm.provider = provider
@@ -582,8 +586,14 @@ class TEILoop:
         else:
             print(f"  {DIM}No confirmed metrics -- skipping baseline measurement.{RESET}")
 
-        # -------- Step 7: Iterative prompt optimization (Pareto front) --------
-        print(f"\n{BOLD}Step 7: Iterative prompt optimization (Pareto front)...{RESET}")
+        # -------- Step 7: Iterative prompt optimization --------
+        _mode = self._optimizer_mode
+        _mode_label = {
+            "pareto": "Pareto front",
+            "cubic": "D-ARC (discrete adaptive cubic regularization)",
+            "hybrid": "D-ARC + Pareto archive (hybrid)",
+        }.get(_mode, _mode)
+        print(f"\n{BOLD}Step 7: Iterative prompt optimization ({_mode_label})...{RESET}")
         optimization_result: Optional[OptimizationResult] = None
 
         if confirmed_metrics and prompt_text:
@@ -597,6 +607,8 @@ class TEILoop:
                 metrics=confirmed_metrics,
                 agent_fn=self._agent.agent_fn,
                 agent_file=self._agent_file,
+                optimizer_mode=_mode,
+                cubic_config=self._cubic_config,
             )
 
             optimization_result = await optimizer.optimize(
@@ -637,16 +649,36 @@ class TEILoop:
         if optimization_result and optimization_result.pareto_front:
             from .prompt_improver import create_patched_agent
 
-            ranked = sorted(
-                [c for c in optimization_result.pareto_front
-                 if c.composite_score > baseline_composite],
-                key=lambda c: c.composite_score,
-                reverse=True,
-            )
+            if _mode == "cubic":
+                # D-ARC mode: the search winner is the best accepted incumbent,
+                # still subject to the same final safety check below.
+                _best = optimization_result.best_candidate
+                ranked = [_best] if (_best and _best.composite_score
+                                     > baseline_composite) else []
+                _cand_label = "D-ARC incumbent"
+            elif _mode == "hybrid":
+                # hybrid: non-dominated archive candidates ranked by scalar
+                # utility (composite_score IS the scalar utility here),
+                # checked in rank order; falls back to reference if none pass.
+                ranked = sorted(
+                    [c for c in optimization_result.pareto_front
+                     if c.composite_score > baseline_composite],
+                    key=lambda c: c.composite_score,
+                    reverse=True,
+                )
+                _cand_label = "candidate"
+            else:
+                ranked = sorted(
+                    [c for c in optimization_result.pareto_front
+                     if c.composite_score > baseline_composite],
+                    key=lambda c: c.composite_score,
+                    reverse=True,
+                )
+                _cand_label = "Pareto candidate"
 
             for rank, candidate in enumerate(ranked):
                 print(
-                    f"  Testing Pareto candidate P{candidate.iteration} "
+                    f"  Testing {_cand_label} P{candidate.iteration} "
                     f"(composite: {candidate.composite_score:.1f}%)...",
                     end="", flush=True,
                 )
@@ -695,8 +727,12 @@ class TEILoop:
 
         if final_eval is None:
             if optimization_result and optimization_result.pareto_front:
+                _none_label = {
+                    "cubic": "No D-ARC incumbent",
+                    "hybrid": "No candidate",
+                }.get(_mode, "No Pareto candidate")
                 print(
-                    f"  {YELLOW}No Pareto candidate passed per-dimension safety check. "
+                    f"  {YELLOW}{_none_label} passed per-dimension safety check. "
                     f"Keeping structurally-fixed agent.{RESET}"
                 )
             final_eval = reference_eval

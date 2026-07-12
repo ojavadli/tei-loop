@@ -65,6 +65,55 @@ Each dimension is scored 0.00–1.00 by a dedicated judge prompt. The aggregate 
 - **Composite scoring**: weighted combination of all approved metrics
 - Only applies the optimized prompt if it **actually improves** the composite score
 
+### Step-7 Optimizer Modes: `pareto` · `cubic` · `hybrid`
+
+Step 7 (prompt optimization only — never Step-3 structural code patching) has
+three modes, selected with `--optimizer-mode`:
+
+| Mode | Behavior |
+|---|---|
+| `pareto` (default) | The historical Pareto-front loop above. Fully backward compatible. |
+| `cubic` | **D-ARC** — Discrete Adaptive Cubic Regularization: incumbent selection on the scalar loss `F(p) = 1 − U(p)`. |
+| `hybrid` | D-ARC controls step acceptance and the regularization strength while a Pareto archive preserves every evaluated candidate's non-dominated metric vector and supplies the final options (ranked by scalar utility, safety-checked in rank order, baseline fallback). |
+
+**What D-ARC is.** An *ARC-inspired, candidate-restricted local-surrogate
+method for discrete prompt optimization*. With normalized metric scores
+`z_j(p) = clamp(score_j(p)/100, 0, 1)` and normalized nonnegative weights
+`w_j`, the scalar utility is `U(p) = Σ_j w_j z_j(p)` and D-ARC minimizes
+`F(p) = 1 − U(p)`. At incumbent `p_k` it fits, by locality-weighted ridge
+regression over previously evaluated prompts, a local quadratic surrogate in
+an SVD subspace of a deterministic prompt-feature space `phi` (signed
+blake2b-hashed character 3/4/5-grams, 256 dims, + 8 structural features,
+L2-normalized), then scores each of up to 4 LLM-proposed candidate prompts
+with the cubic model
+
+```
+m_k(p) = F(p_k) + g_kᵀ z + ½ zᵀ B_k z + (σ_k/3)·‖s‖₂³ ,   s = phi(p) − phi(p_k),  z = Q_kᵀ s
+```
+
+(the cubic penalty uses the FULL feature-space step norm, so novel directions
+outside the fitted subspace are penalized), evaluates the model minimizer,
+and accepts/rejects by `ρ_k = ared/pred` with the classical thresholds
+(η₁ = 0.1, η₂ = 0.9; σ halves on very successful steps, doubles on failures,
+clipped to [1e-4, 1e4]). The subproblem is solved only over the finite
+LLM-proposed candidate set — no pretend decoding of feature vectors to text.
+
+**Limitations (stated, not fine print).** `g_k` and `B_k` are *fitted
+surrogate coefficients* in the feature space — not true derivatives of an
+LLM; prompt text is discrete, so D-ARC does **not** inherit classical ARC's
+convergence or O(ε^{-3/2}) complexity guarantees. Foundations of the
+continuous method it adapts: Nesterov & Polyak (2006),
+https://doi.org/10.1007/s10107-006-0706-8, and Cartis, Gould & Toint (ARC I),
+https://people.maths.ox.ac.uk/cartis/papers/ARCpI.pdf.
+
+```bash
+# D-ARC needs numpy:  pip install 'tei-loop[cubic]'
+python3 -m tei_loop agent.py --optimizer-mode cubic \
+    --cubic-sigma 1.0 --cubic-warmup 5 --cubic-proposals 4 \
+    --cubic-window 20 --cubic-patience 3
+python3 -m tei_loop agent.py --optimizer-mode hybrid   # D-ARC + Pareto archive
+```
+
 ## Python API
 
 ```python

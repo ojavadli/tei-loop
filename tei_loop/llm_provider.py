@@ -48,6 +48,20 @@ PROVIDER_MODELS: dict[str, dict[str, dict[str, Any]]] = {
                 "output_cost_per_1m": 2.00,
                 "tier": "fast",
             },
+            # gpt-5.4-mini family (official token prices):
+            # input $0.75/1M, cached input $0.075/1M, output $4.50/1M
+            "gpt-5.4-mini": {
+                "input_cost_per_1m": 0.75,
+                "cached_input_cost_per_1m": 0.075,
+                "output_cost_per_1m": 4.50,
+                "tier": "fast",
+            },
+            "gpt-5.4-mini-2026-03-17": {
+                "input_cost_per_1m": 0.75,
+                "cached_input_cost_per_1m": 0.075,
+                "output_cost_per_1m": 4.50,
+                "tier": "fast",
+            },
         },
     },
     "anthropic": {
@@ -194,11 +208,13 @@ def get_api_key(provider: str, config: LLMConfig) -> str:
 class BaseLLMProvider(ABC):
     """Abstract LLM provider interface."""
 
-    def __init__(self, api_key: str, model: str, temperature: float = 0.1, max_tokens: int = 4096):
+    def __init__(self, api_key: str, model: str, temperature: float = 0.1,
+                 max_tokens: int = 4096, allow_model_fallback: bool = False):
         self.api_key = api_key
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.allow_model_fallback = allow_model_fallback
         self.total_input_tokens = 0
         self.total_output_tokens = 0
 
@@ -248,6 +264,14 @@ class OpenAIProvider(BaseLLMProvider):
                 params.pop("temperature", None)
                 return await client.chat.completions.create(**params)
             if "model_not_found" in err or "does not exist" in err:
+                # Model substitution is opt-in only. Silent fallback would
+                # invalidate any benchmark pinned to an exact snapshot.
+                if not self.allow_model_fallback:
+                    raise RuntimeError(
+                        f"Requested model {params.get('model')!r} is unavailable "
+                        f"to this API key and allow_model_fallback is False. "
+                        f"Refusing to substitute another model."
+                    ) from e
                 for fb in self._FALLBACK_MODELS:
                     if fb != params["model"]:
                         params["model"] = fb
@@ -377,6 +401,7 @@ def create_provider(
         model=model,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
+        allow_model_fallback=getattr(config, "allow_model_fallback", False),
     )
 
 

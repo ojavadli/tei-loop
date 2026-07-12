@@ -375,6 +375,21 @@ def main() -> None:
     parser.add_argument("--iterations", "-i", type=int, default=30, help="Optimization iterations")
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--non-interactive", action="store_true", help="Skip Y/N prompts, auto-approve")
+    parser.add_argument(
+        "--optimizer-mode", choices=["pareto", "cubic", "hybrid"], default="pareto",
+        help="Step-7 optimizer: pareto (default, historical behavior), "
+             "cubic (D-ARC scalar incumbent selection), or hybrid "
+             "(D-ARC step control + Pareto archive)")
+    parser.add_argument("--cubic-sigma", type=float, default=1.0,
+                        help="D-ARC initial regularization sigma_0 (default 1.0)")
+    parser.add_argument("--cubic-warmup", type=int, default=5,
+                        help="D-ARC warm-up evaluations (default 5)")
+    parser.add_argument("--cubic-proposals", type=int, default=4,
+                        help="D-ARC proposals per iteration (default 4)")
+    parser.add_argument("--cubic-window", type=int, default=20,
+                        help="D-ARC max nearest observations for the surrogate (default 20)")
+    parser.add_argument("--cubic-patience", type=int, default=3,
+                        help="D-ARC consecutive failed iterations before stopping (default 3)")
 
     args = parser.parse_args()
 
@@ -415,13 +430,13 @@ def main() -> None:
 
     print(f"\n{BOLD}{CYAN}TEI Loop{RESET} - Target, Evaluate, Improve\n")
 
+    # Never print any part of an API key — report presence by provider name only.
     api_keys_found = []
     for provider, env_var in [("OpenAI", "OPENAI_API_KEY"), ("Anthropic", "ANTHROPIC_API_KEY"), ("Google", "GOOGLE_API_KEY")]:
-        key = os.environ.get(env_var, "")
-        if key:
-            api_keys_found.append(f"{provider} ({env_var}={key[:8]}...)")
+        if os.environ.get(env_var, ""):
+            api_keys_found.append(f"{provider} ({env_var} set)")
     if api_keys_found:
-        print(f"  {GREEN}API keys: {', '.join(api_keys_found)}{RESET}")
+        print(f"  {GREEN}API keys detected: {', '.join(api_keys_found)}{RESET}")
     else:
         print(f"  {RED}No API keys found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY{RESET}")
         sys.exit(1)
@@ -461,12 +476,24 @@ def main() -> None:
     print()
 
     interactive = not args.non_interactive
+    cubic_config = None
+    if args.optimizer_mode in ("cubic", "hybrid"):
+        from .cubic import CubicConfig   # raises actionable error if numpy missing
+        cubic_config = CubicConfig(
+            sigma0=args.cubic_sigma,
+            warmup_evals=args.cubic_warmup,
+            proposals_per_iteration=args.cubic_proposals,
+            window=args.cubic_window,
+            patience=args.cubic_patience,
+        )
     loop = TEILoop(
         agent=agent_fn,
         verbose=args.verbose,
         agent_file=str(agent_path),
         interactive=interactive,
         num_iterations=args.iterations,
+        optimizer_mode=args.optimizer_mode,
+        cubic_config=cubic_config,
     )
     result = asyncio.run(loop.run(base_query, test_queries=test_queries))
     _print_full_result(result)

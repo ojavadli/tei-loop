@@ -230,6 +230,9 @@ class LLMConfig(BaseModel):
     api_key: Optional[str] = None
     temperature: float = 0.1
     max_tokens: int = 4096
+    # Never substitute another model silently. Benchmarks pinned to an exact
+    # snapshot must keep this False (the default) so unavailability fails fast.
+    allow_model_fallback: bool = False
 
 
 class TEIConfig(BaseModel):
@@ -320,14 +323,46 @@ class ParetoCandidate(BaseModel):
     dominated: bool = False
 
 
+class OptimizerMode(str, Enum):
+    """Step-7 optimizer modes. `pareto` is the historical default; `cubic`
+    is D-ARC incumbent selection on a scalar loss; `hybrid` is D-ARC step
+    control with a Pareto archive preserving non-dominated candidates."""
+    PARETO = "pareto"
+    CUBIC = "cubic"
+    HYBRID = "hybrid"
+
+
+class CubicRunSettings(BaseModel):
+    """User-facing D-ARC settings (subset of tei_loop.cubic.CubicConfig).
+    All optional so historical configs deserialize unchanged."""
+    sigma0: float = 1.0
+    warmup_evals: int = 5
+    proposals_per_iteration: int = 4
+    window: int = 20
+    patience: int = 3
+
+
 class OptimizationResult(BaseModel):
-    """Final result of prompt optimization."""
+    """Final result of prompt optimization.
+
+    The cubic/hybrid fields are additive and default-valued so that
+    historical serialized results (pre-D-ARC) still deserialize.
+    """
     total_iterations: int
     pareto_front: list[ParetoCandidate] = Field(default_factory=list)
     best_candidate: Optional[ParetoCandidate] = None
     metric_history: list[dict[str, float]] = Field(default_factory=list)
     baseline_scores: dict[str, float] = Field(default_factory=dict)
     final_scores: dict[str, float] = Field(default_factory=dict)
+    # ---- D-ARC (cubic / hybrid) additions; defaults preserve back-compat ----
+    optimizer_mode: str = "pareto"
+    cubic_config: Optional[dict[str, Any]] = None
+    cubic_history: list[dict[str, Any]] = Field(default_factory=list)
+    incumbent_history: list[dict[str, Any]] = Field(default_factory=list)
+    surrogate_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+    final_selection_source: str = "pareto_composite"
+    scalar_utility_baseline: Optional[float] = None
+    scalar_utility_final: Optional[float] = None
 
 
 class TEIFullResult(BaseModel):

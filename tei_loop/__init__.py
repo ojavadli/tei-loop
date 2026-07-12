@@ -36,7 +36,12 @@ from .evaluator import TEIEvaluator
 from .checkpoint_scanner import scan_agent
 from .pareto import update_pareto_front, select_best
 
-__version__ = "1.0.0"
+# D-ARC (Discrete Adaptive Cubic Regularization) — Step-7 optimizer modes
+# "cubic" and "hybrid". Kept as a lazy submodule import path so that the
+# default "pareto" mode never requires numpy:
+#   from tei_loop.cubic import CubicConfig, DiscreteARCController
+
+__version__ = "1.1.0"
 
 __all__ = [
     "TEILoop",
