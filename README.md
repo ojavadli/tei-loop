@@ -4,6 +4,10 @@
 
 TEI connects structured evaluation to automated improvement: it identifies *what* failed, *why* it failed, and applies the right fix (structural code change or prompt optimization) based on the failure type.
 
+## Results
+
+Applied to **30 real SWE-bench leaderboard agents** (TEI-SWE study): **26/26 patched agents improved under blinded re-evaluation** (128/130 votes, p<10⁻⁷) at **~$0.50 per agent**, with 547 applied patches and a do-no-harm gate confirmed at the execution rung. Full study, datasets, and paper: [tei-swe](https://github.com/ojavadli/tei-swe) · controlled benchmark program: [tei-bench](https://github.com/ojavadli/tei-bench).
+
 ## Quick Start
 
 ```bash
