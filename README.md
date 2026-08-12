@@ -6,7 +6,7 @@ TEI connects structured evaluation to automated improvement: it identifies *what
 
 ## Results
 
-Applied to **30 real SWE-bench leaderboard agents** (TEI-SWE study). Pre-repair confirmatory result: 24/26 patched agents (118/130 votes); after defect repair, the adaptive retest shows 26/26 strict majorities, 24 unanimous (128/130 votes) — at ~$0.47 per agent across all evaluation passes, with 547 applied patches, a pre-registered sham placebo rejecting the style explanation, and do-no-harm confirmed at the execution rung. Full study, datasets, and paper: [tei-swe](https://github.com/ojavadli/tei-swe) · controlled benchmark program: [tei-bench](https://github.com/ojavadli/tei-bench).
+Applied to **30 real SWE-bench leaderboard agents** (TEI-SWE study). Pre-repair confirmatory result: 21/26 patched agents (105/130 votes); after repairing the one import-time defect, the adaptive retest shows 22/26 strict majorities, 17 unanimous (110/130 votes), with 4 agents preferring the baseline — 6,000 audited candidate versions (100 structural + 100 prompt per system) at ~$1.79 per agent, a pre-registered sham placebo rejecting the style explanation, and two pre-registered execution arms both null (gpt-4o-mini 3/36 vs 3/36; funded gpt-5.6-luna 47/100 vs 50/100). Full study, datasets, and paper: [tei-swe](https://github.com/ojavadli/tei-swe) · controlled benchmark program: [tei-bench](https://github.com/ojavadli/tei-bench).
 
 ## Quick Start
 
