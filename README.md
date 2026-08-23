@@ -150,6 +150,19 @@ TEI never modifies your original agent file. It creates a clone (`agentCLONE1.py
 - An optimized prompt saved to `TEI-work/optimized_prompt.txt`
 - Full JSON results in `tei-results/`
 
+## The paper (2026) and the exact code it used
+
+TEI was evaluated on 30 systems from the SWE-bench leaderboard archive in
+*"TEI (Target--Evaluate--Improve) Loop: A Joint Advantage over Agent-Improvement Methods
+with Low-Cost Adaptive Bottleneck Optimization of Harnesses and Prompts for Self-Improving
+Agents"* (Zimina, Denisov-Blanch, Javadli, 2026): blinded judges prefer the TEI-modified
+agent on a majority of systems against GEPA, ACE, AHE, and MIPRO under a shared low-cost
+31-iteration regime (joint GEE 65% [52, 76]%, p = 0.029), at under $2 of supervision per
+system. The **verbatim instrument and loop used in the paper** are published in
+[`reference/`](reference/) — where the interactive `tei_loop` package and the paper differ,
+`reference/` is what was measured. Frozen study data and per-system artifacts:
+[tei-bench](https://github.com/ojavadli/tei-bench).
+
 ## Contributors
 
 - [Orkhan Javadli](https://github.com/ojavadli)
