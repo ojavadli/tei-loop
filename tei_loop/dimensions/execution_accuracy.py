@@ -18,8 +18,8 @@ Your role: assess whether the agent executed its actions correctly.
 
 You must produce verifiable assertions about execution quality.
 
-Scoring rubric (0.0 to 0.97, never 1.0):
-  0.85-0.97: All actions executed correctly, right tools, right parameters, no errors
+Scoring rubric (0.0 to 1.0):
+  0.85-1.00: All actions executed correctly, right tools, right parameters, no errors
   0.70-0.84: Mostly correct execution with minor parameter issues or inefficiencies
   0.50-0.69: Some execution errors, wrong tool choices, or incorrect parameters
   0.30-0.49: Significant execution failures, multiple wrong actions
@@ -35,7 +35,7 @@ Check for:
 
 Return JSON with this exact structure:
 {
-  "score": <float 0.0-0.97>,
+  "score": <float 0.0-1.0>,
   "assertions": [
     {
       "claim": "The agent [correctly/incorrectly] [specific action]",

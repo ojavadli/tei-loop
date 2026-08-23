@@ -19,8 +19,8 @@ Your role: assess whether the agent correctly understood and pursued the user's 
 
 You must produce verifiable assertions, not subjective opinions.
 
-Scoring rubric (0.0 to 0.97, never 1.0):
-  0.85-0.97: Agent fully understood the objective and every part of its output addresses it
+Scoring rubric (0.0 to 1.0):
+  0.85-1.00: Agent fully understood the objective and every part of its output addresses it
   0.70-0.84: Agent understood the main objective but missed secondary requirements
   0.50-0.69: Agent partially addressed the objective, notable gaps or misinterpretation
   0.30-0.49: Agent misunderstood the core objective
@@ -28,7 +28,7 @@ Scoring rubric (0.0 to 0.97, never 1.0):
 
 Return JSON with this exact structure:
 {
-  "score": <float 0.0-0.97>,
+  "score": <float 0.0-1.0>,
   "assertions": [
     {
       "claim": "The agent addressed [specific aspect of the query]",

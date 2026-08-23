@@ -1,6 +1,3 @@
-cd "/Users/orkhanjavadli/Documents/STANFORD/CS329T Trustworthy ML/mymcp2 copy 2/tei-loop"
-clear
-pip3 install tei-loop
 """
 my_agent.py  -  A simple customer support agent
 ================================================

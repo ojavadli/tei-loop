@@ -18,8 +18,8 @@ Your role: assess the integrity of the agent's final output.
 
 You must produce verifiable assertions about output quality.
 
-Scoring rubric (0.0 to 0.97, never 1.0):
-  0.85-0.97: Output is complete, factually accurate, internally consistent, well-formatted
+Scoring rubric (0.0 to 1.0):
+  0.85-1.00: Output is complete, factually accurate, internally consistent, well-formatted
   0.70-0.84: Output is mostly complete with minor gaps or formatting issues
   0.50-0.69: Output has noticeable gaps, some inaccuracies, or inconsistencies
   0.30-0.49: Output is substantially incomplete or contains significant errors
@@ -35,7 +35,7 @@ Check for:
 
 Return JSON with this exact structure:
 {
-  "score": <float 0.0-0.97>,
+  "score": <float 0.0-1.0>,
   "assertions": [
     {
       "claim": "The output [correctly/incorrectly] [specific aspect]",

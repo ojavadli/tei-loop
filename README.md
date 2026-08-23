@@ -172,6 +172,12 @@ and the do-no-harm deployment gate (mean ≥ reference AND losses ≤ wins over 
 probes, exact two-sided sign-test p reported) in place of the earlier
 any-dimension-regression rule.
 
+One disclosed extension remains: the package's Steps 5–7 optimize prompts against
+user-approved task metrics on a Pareto front, whereas the paper's prompt phase scores
+every candidate with the same four-dimension rubric (see `reference/tei_pipeline.py`).
+Structural targeting, scoring, and the deployment gate are paper-exact; the metric
+proposal stage is an interactive-tool feature the paper does not use.
+
 ## Contributors
 
 - [Orkhan Javadli](https://github.com/ojavadli)

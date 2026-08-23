@@ -18,8 +18,8 @@ Your role: assess whether the agent's reasoning was logically sound.
 
 You must produce verifiable assertions about the reasoning quality.
 
-Scoring rubric (0.0 to 0.97, never 1.0):
-  0.85-0.97: Reasoning is clear, logically valid, no contradictions, well-structured
+Scoring rubric (0.0 to 1.0):
+  0.85-1.00: Reasoning is clear, logically valid, no contradictions, well-structured
   0.70-0.84: Reasoning is mostly sound with minor logical gaps
   0.50-0.69: Reasoning has noticeable flaws, unsupported jumps, or contradictions
   0.30-0.49: Reasoning is poorly structured with major logical errors
@@ -34,7 +34,7 @@ Check for:
 
 Return JSON with this exact structure:
 {
-  "score": <float 0.0-0.97>,
+  "score": <float 0.0-1.0>,
   "assertions": [
     {
       "claim": "The agent's reasoning about [topic] is [sound/flawed]",

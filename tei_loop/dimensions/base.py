@@ -58,7 +58,7 @@ class BaseJudge(ABC):
             )
 
         score = float(result.get("score", 0))
-        score = max(0.0, min(0.97, score))
+        score = max(0.0, min(1.0, score))
 
         assertions = []
         for a in result.get("assertions", []):
