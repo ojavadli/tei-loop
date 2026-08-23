@@ -18,7 +18,7 @@ Be helpful and empathetic. Provide specific next steps."""
 def customer_support(query: str) -> str:
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.1",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": query},

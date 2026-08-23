@@ -25,7 +25,7 @@ TEI auto-detects your agent function, clones the file, runs the 8-step pipeline,
 | 5. **Metric proposal** | LLM proposes task-specific objective metrics | Approved metrics + weights |
 | 6. **Prompt baseline** | Measure current prompts against confirmed metrics | Composite efficiency score |
 | 7. **Prompt optimization** | Pareto-front optimization: mutation + merge over N iterations | Best prompt candidate |
-| 8. **Final report** | Prompt candidates ship only through the paper's **do-no-harm gate** (mean ≥ reference AND losses ≤ wins over paired probes, exact sign-test p reported), then Baseline → Middle → Final comparison | JSON report + optimized prompt |
+| 8. **Final report** | Prompt candidates ship only through the paper's **do-no-harm gate** (mean ≥ reference AND losses ≤ wins over paired probes, exact sign-test p reported), then a final gate compares the whole shipped agent against the **original baseline** before the Baseline → Middle → Final report | JSON report + optimized prompt |
 
 Scores are aggregated with the paper's clamp — `clamp(s) = min(max(s, 0), 0.999)` per dimension, aggregate = weighted mean of clamped scores — so a saturated dimension can never mask the weakest one. Pass `test_queries=[...]` (2+ probes) to gate on per-query paired aggregates exactly as in the paper; with a single query the gate pairs the four clamped dimension scores instead.
 
@@ -77,7 +77,7 @@ def my_agent(query: str) -> str:
     from openai import OpenAI
     client = OpenAI()
     r = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.1",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": query},
@@ -116,10 +116,12 @@ python3 -m tei_loop agent.py --verbose               # Detailed output
 | Provider | Eval model | Improve model | Env var |
 |---|---|---|---|
 | OpenAI | gpt-5.2 | gpt-5.1 | `OPENAI_API_KEY` |
-| Anthropic | claude-opus-4-6 | claude-sonnet-4-6 | `ANTHROPIC_API_KEY` |
+| Anthropic | claude-opus-4-20250514 | claude-sonnet-4-20250514 | `ANTHROPIC_API_KEY` |
 | Google | gemini-3-pro-preview | gemini-3-flash-preview | `GOOGLE_API_KEY` |
 
 Auto-detected from environment. Falls back to available models if primary is unavailable.
+
+To reproduce the paper's configuration, set the eval and improve models explicitly to `gpt-5.6-luna` — every proposer/judge call in the study ran on it.
 
 ## Output
 
@@ -150,6 +152,7 @@ Known limitations:
 TEI never modifies your original agent file. It creates a clone (`agentCLONE1.py`) in the same directory and experiments only on the clone. Each structural fix is applied, **reloaded at runtime**, and evaluated. If it doesn't improve the score, it's rolled back instantly. After optimization, you get:
 - The improved clone file with structural fixes
 - An optimized prompt saved to `TEI-work/optimized_prompt.txt`
+- A final do-no-harm verdict vs your original agent (`final_gate_summary` in the JSON): if the total change does not pass, TEI tells you to keep the original
 - Full JSON results in `tei-results/`
 
 ## The paper (2026) and the exact code it used
@@ -165,7 +168,7 @@ system. The **verbatim instrument and loop used in the paper** are published in
 `reference/` is what was measured. Frozen study data and per-system artifacts:
 [tei-bench](https://github.com/ojavadli/tei-bench).
 
-**v1.1.0** aligns the package core with the paper's Algorithm 1: the Eq. 1 clamp
+**v1.2.0** completes the Algorithm 1 alignment: the do-no-harm gate now ALSO fires once at the end on the whole shipped delta (structural + prompt) against the original baseline — exactly Algorithm 1's deploy-or-keep-baseline decision — and internal fallback models are current. **v1.1.0** aligned the package core with the paper's Algorithm 1: the Eq. 1 clamp
 (`min(max(s, 0), 0.999)`) in score aggregation, per-iteration re-diagnosis of the
 best-so-far agent's weakest dimension (TARGET) with dimension-targeted proposals,
 and the do-no-harm deployment gate (mean ≥ reference AND losses ≤ wins over paired

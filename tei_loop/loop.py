@@ -232,6 +232,19 @@ class TEILoop:
         self._print_eval_table(baseline_eval, "BASELINE EVALUATION (Pre-TEI)")
         self._print_checkpoint_details(checkpoints, baseline_cp)
 
+        # Algorithm 1 line 1: with a probe set, the baseline enters the ledger scored
+        # on every probe -- these pairs feed the FINAL do-no-harm gate (line 14).
+        probe_queries: list[Any] = list(test_queries) if test_queries and len(test_queries) >= 2 else []
+        baseline_probe_scores: list[float] = []
+        if probe_queries:
+            print(f"  Ledger: scoring baseline on {len(probe_queries)} probe queries...")
+            for pq in probe_queries:
+                b_tr = await run_and_trace(self._agent.agent_fn, pq, context=context)
+                b_ev = await self._evaluator.evaluate(b_tr)
+                baseline_probe_scores.append(b_ev.aggregate_score)
+        ref_probe_scores: list[float] = []
+        accepted_probe_scores: list[float] = []
+
         # -------- Step 3 + 4: Iterative structural fixes (20-iteration batches) --------
         print(f"\n{BOLD}Step 3: Iterative structural fixes (20-iteration batches)...{RESET}")
         fixer = StructuralFixer(self._improve_llm)
@@ -649,8 +662,6 @@ class TEILoop:
 
             # Do-no-harm gate (paper Sec. 2.4): with a probe set (>=2 queries) the
             # gate pairs per-query aggregates; the reference is scored once here.
-            probe_queries = list(test_queries) if test_queries and len(test_queries) >= 2 else []
-            ref_probe_scores: list[float] = []
             if probe_queries:
                 print(
                     f"  Gate reference: scoring current agent on "
@@ -711,6 +722,8 @@ class TEILoop:
                     chosen_prompt = candidate.prompt_text
                     final_eval = cand_eval
                     final_trace = cand_trace
+                    if probe_queries:
+                        accepted_probe_scores = cand_probe_scores
                     break
                 else:
                     print(f" {YELLOW}{decision.summary()}{RESET}")
@@ -732,6 +745,36 @@ class TEILoop:
 
         result.final_eval = final_eval
         print(f" done\n")
+
+        # Algorithm 1 line 14, applied to the WHOLE shipped delta: the final agent
+        # (structural fixes + accepted prompt) must pass the do-no-harm gate against
+        # the ORIGINAL baseline, not merely against the post-structural reference.
+        if baseline_probe_scores:
+            final_probe_scores = accepted_probe_scores or ref_probe_scores
+            if not final_probe_scores:
+                print(f"  Final gate: scoring shipped agent on {len(probe_queries)} probe queries...")
+                for pq in probe_queries:
+                    f_tr = await run_and_trace(self._agent.agent_fn, pq, context=context)
+                    f_ev = await self._evaluator.evaluate(f_tr)
+                    final_probe_scores.append(f_ev.aggregate_score)
+            final_gate = do_no_harm(final_probe_scores, baseline_probe_scores)
+        else:
+            dims = sorted(baseline_eval.dimension_scores)
+            final_gate = do_no_harm(
+                [clamp(final_eval.dimension_scores[d].score)
+                 for d in dims if d in final_eval.dimension_scores],
+                [clamp(baseline_eval.dimension_scores[d].score)
+                 for d in dims if d in final_eval.dimension_scores],
+            )
+        result.final_gate_summary = final_gate.summary()
+        if final_gate.accept:
+            print(f"  {GREEN}Final do-no-harm gate vs original baseline: {final_gate.summary()}{RESET}")
+        else:
+            print(f"  {YELLOW}Final do-no-harm gate vs original baseline: {final_gate.summary()}{RESET}")
+            print(
+                f"  {YELLOW}Per Algorithm 1 the original baseline is the keeper; "
+                f"the clone and optimized prompt remain on disk for inspection.{RESET}"
+            )
 
         final_cp = self._map_checkpoint_results(checkpoints, final_eval, "final")
         result.checkpoint_journey.append(final_cp)

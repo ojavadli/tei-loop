@@ -234,7 +234,7 @@ class OpenAIProvider(BaseLLMProvider):
             params["temperature"] = self.temperature
         return params
 
-    _FALLBACK_MODELS = ["gpt-4o", "gpt-4o-mini"]
+    _FALLBACK_MODELS = ["gpt-5.1", "gpt-5-mini"]
 
     async def _call(self, params: dict[str, Any]) -> Any:
         from openai import AsyncOpenAI

@@ -351,6 +351,7 @@ class TEIFullResult(BaseModel):
     baseline_prompt_scores: list[MetricResult] = Field(default_factory=list)
     optimization: Optional[OptimizationResult] = None
     final_eval: Optional[EvalResult] = None
+    final_gate_summary: str = ""
     checkpoint_journey: list[list[CheckpointResult]] = Field(default_factory=list)
     total_duration_ms: float = 0.0
     total_cost_usd: float = 0.0

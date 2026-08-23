@@ -22,7 +22,7 @@ def customer_support_agent(query: str) -> str:
     """Handle a customer support query and return a response."""
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.1",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": query},

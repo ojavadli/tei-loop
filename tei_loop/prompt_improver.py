@@ -241,7 +241,7 @@ def create_patched_agent(
         except ImportError:
             return original_fn(query)
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        mdl = model or "gpt-4o-mini"
+        mdl = model or "gpt-5-mini"
         try:
             response = client.chat.completions.create(
                 model=mdl,
