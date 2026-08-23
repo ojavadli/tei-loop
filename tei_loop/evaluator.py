@@ -12,6 +12,7 @@ import time
 from typing import Optional
 
 from .models import (
+    clamp,
     Dimension,
     DimensionConfig,
     DimensionScore,
@@ -84,7 +85,7 @@ class TEIEvaluator:
         }
         total_weight = sum(weights.values()) or 1.0
         aggregate = sum(
-            dimension_scores[dim].score * weights[dim]
+            clamp(dimension_scores[dim].score) * weights[dim]
             for dim in dimension_scores
         ) / total_weight
 

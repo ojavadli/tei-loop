@@ -8,7 +8,7 @@ import json
 import re
 from pathlib import Path
 
-from .models import Checkpoint, CheckpointResult, EvalResult, StructuralFix
+from .models import Checkpoint, CheckpointResult, Dimension, EvalResult, StructuralFix
 from .llm_provider import BaseLLMProvider
 
 
@@ -111,8 +111,11 @@ Propose a structural fix. Respond with JSON only."""
         checkpoint_results: list[CheckpointResult],
         eval_result: EvalResult,
         agent_files: list[str],
+        target_dimension: "Dimension | None" = None,
     ) -> list[StructuralFix]:
-        """Propose ONE fix that improves ALL dimensions without degrading any."""
+        """Propose ONE fix. With target_dimension set (Algorithm 1, TARGET step),
+        the fix is aimed at the diagnosed weakest dimension while forbidding
+        regressions on the other three; without it, the legacy holistic mode."""
         base_dirs = [Path(f).resolve().parent for f in agent_files] if agent_files else [Path.cwd()]
 
         dim_lines = []
@@ -135,6 +138,14 @@ Propose a structural fix. Respond with JSON only."""
                     pass
         source_text = "\n\n".join(source_blocks) if source_blocks else "(no source available)"
 
+        target_block = ""
+        if target_dimension is not None:
+            target_block = (
+                "\nDIAGNOSIS (TEI Algorithm 1): the current weakest dimension is "
+                f"'{target_dimension.value}'. Aim this ONE fix at raising that dimension "
+                "specifically -- name the failure mode you are correcting on it -- while "
+                "not degrading the other three dimensions."
+            )
         system_prompt = """You are an expert AI agent architect. You propose ONE structural code fix that improves the agent across ALL four evaluation dimensions simultaneously:
 - Target Alignment: does the agent pursue the correct objective?
 - Reasoning Soundness: is the reasoning logical?
@@ -160,7 +171,7 @@ The code_patch MUST use REPLACE format with exact old code from the source."""
         user_prompt = f"""CURRENT EVALUATION SCORES (all 4 dimensions):
 {dim_block}
 Aggregate: {eval_result.aggregate_score:.2f}
-
+{target_block}
 AGENT SOURCE CODE:
 {source_text}
 

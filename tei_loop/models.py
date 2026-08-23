@@ -14,6 +14,15 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 
+def clamp(score: float) -> float:
+    """Paper Eq. 1: clamp(s) = min(max(s, 0), 0.999).
+
+    Keeps every dimension score away from a saturated 1.0 so the weakest-dimension
+    diagnosis (argmin) always has signal, and floors negatives at 0.
+    """
+    return min(max(score, 0.0), 0.999)
+
+
 class Dimension(str, Enum):
     """The four TEI evaluation dimensions ."""
     TARGET_ALIGNMENT = "target_alignment"
@@ -84,7 +93,7 @@ class Assertion(BaseModel):
 class DimensionScore(BaseModel):
     """Score for a single evaluation dimension."""
     dimension: Dimension
-    score: float = Field(ge=0.0, le=0.97)
+    score: float = Field(ge=0.0, le=1.0)
     passed: bool = False
     threshold: float = 0.7
     assertions: list[Assertion] = Field(default_factory=list)

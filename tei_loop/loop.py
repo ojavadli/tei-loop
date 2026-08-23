@@ -24,7 +24,9 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from .gate import do_no_harm
 from .models import (
+    clamp,
     Dimension,
     DimensionScore,
     EvalResult,
@@ -276,13 +278,21 @@ class TEILoop:
                     )
                 )
 
+                # TARGET (Algorithm 1): re-diagnose the weakest dimension of the
+                # best-so-far agent each iteration and aim the proposal at it.
+                target_dim = min(
+                    current_eval.dimension_scores.items(),
+                    key=lambda kv: kv[1].score,
+                )[0]
+
                 print(
-                    f"    [{iteration_num:>3}] All dims ({dim_summary})...",
+                    f"    [{iteration_num:>3}] target={target_dim.value} ({dim_summary})...",
                     end="", flush=True,
                 )
 
                 proposed = await fixer.propose_holistic_fix(
                     checkpoints, current_cp, current_eval, agent_files,
+                    target_dimension=target_dim,
                 )
 
                 if not proposed:
@@ -637,6 +647,20 @@ class TEILoop:
         if optimization_result and optimization_result.pareto_front:
             from .prompt_improver import create_patched_agent
 
+            # Do-no-harm gate (paper Sec. 2.4): with a probe set (>=2 queries) the
+            # gate pairs per-query aggregates; the reference is scored once here.
+            probe_queries = list(test_queries) if test_queries and len(test_queries) >= 2 else []
+            ref_probe_scores: list[float] = []
+            if probe_queries:
+                print(
+                    f"  Gate reference: scoring current agent on "
+                    f"{len(probe_queries)} probe queries..."
+                )
+                for pq in probe_queries:
+                    r_tr = await run_and_trace(self._agent.agent_fn, pq, context=context)
+                    r_ev = await self._evaluator.evaluate(r_tr)
+                    ref_probe_scores.append(r_ev.aggregate_score)
+
             ranked = sorted(
                 [c for c in optimization_result.pareto_front
                  if c.composite_score > baseline_composite],
@@ -663,29 +687,33 @@ class TEILoop:
                 cand_trace = await run_and_trace(patched_fn, query, context=context)
                 cand_eval = await self._evaluator.evaluate(cand_trace)
 
-                any_dim_regressed = False
-                regression_dims = []
-                for dim in reference_eval.dimension_scores:
-                    ref_ds = reference_eval.dimension_scores[dim]
-                    cand_ds = cand_eval.dimension_scores.get(dim)
-                    if cand_ds and cand_ds.score < ref_ds.score:
-                        any_dim_regressed = True
-                        regression_dims.append(
-                            f"{_dim_label(dim)} {ref_ds.score:.2f}->{cand_ds.score:.2f}"
-                        )
-
-                if not any_dim_regressed:
-                    print(
-                        f" {GREEN}{cand_eval.aggregate_score:.3f} -- no dimension regressed, accepted!{RESET}"
+                # IMPROVE (Algorithm 1 line 14): do-no-harm gate --
+                # mean(candidate) >= mean(reference) AND losses <= wins.
+                if probe_queries:
+                    cand_probe_scores: list[float] = []
+                    for pq in probe_queries:
+                        c_tr = await run_and_trace(patched_fn, pq, context=context)
+                        c_ev = await self._evaluator.evaluate(c_tr)
+                        cand_probe_scores.append(c_ev.aggregate_score)
+                    decision = do_no_harm(cand_probe_scores, ref_probe_scores)
+                else:
+                    # single probe: pair the four clamped dimension scores instead
+                    dims = sorted(reference_eval.dimension_scores)
+                    decision = do_no_harm(
+                        [clamp(cand_eval.dimension_scores[d].score)
+                         for d in dims if d in cand_eval.dimension_scores],
+                        [clamp(reference_eval.dimension_scores[d].score)
+                         for d in dims if d in cand_eval.dimension_scores],
                     )
+
+                if decision.accept:
+                    print(f" {GREEN}{decision.summary()}{RESET}")
                     chosen_prompt = candidate.prompt_text
                     final_eval = cand_eval
                     final_trace = cand_trace
                     break
                 else:
-                    print(
-                        f" {YELLOW}regressed [{', '.join(regression_dims)}] -- skipped{RESET}"
-                    )
+                    print(f" {YELLOW}{decision.summary()}{RESET}")
 
         if chosen_prompt and self._work_dir:
             opt_path = self._work_dir / "optimized_prompt.txt"
@@ -696,7 +724,7 @@ class TEILoop:
         if final_eval is None:
             if optimization_result and optimization_result.pareto_front:
                 print(
-                    f"  {YELLOW}No Pareto candidate passed per-dimension safety check. "
+                    f"  {YELLOW}No Pareto candidate passed the do-no-harm gate."
                     f"Keeping structurally-fixed agent.{RESET}"
                 )
             final_eval = reference_eval

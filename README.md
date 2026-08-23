@@ -20,12 +20,14 @@ TEI auto-detects your agent function, clones the file, runs the 8-step pipeline,
 |------|-------------|--------|
 | 1. **Scan** | AST-parse agent files, find LLM calls, tool calls, outputs | Checkpoint locations |
 | 2. **Baseline eval** | Run agent, score 4 dimensions via LLM-as-judge | Scores + failure diagnosis |
-| 3. **Structural fixes** | 20-iteration batch: propose code patches, apply, eval, **rollback if worse** | Best structural improvement |
+| 3. **Structural fixes** | 20-iteration batch: **re-diagnose the best-so-far agent's weakest dimension each iteration** (Algorithm 1 TARGET), propose a patch aimed at it, apply, eval, **rollback if worse** | Best structural improvement |
 | 4. **Middle eval** | Re-evaluate after fixes, show delta from baseline | Before/after comparison |
 | 5. **Metric proposal** | LLM proposes task-specific objective metrics | Approved metrics + weights |
 | 6. **Prompt baseline** | Measure current prompts against confirmed metrics | Composite efficiency score |
 | 7. **Prompt optimization** | Pareto-front optimization: mutation + merge over N iterations | Best prompt candidate |
-| 8. **Final report** | Baseline → Middle → Final comparison across all dimensions | JSON report + optimized prompt |
+| 8. **Final report** | Prompt candidates ship only through the paper's **do-no-harm gate** (mean ≥ reference AND losses ≤ wins over paired probes, exact sign-test p reported), then Baseline → Middle → Final comparison | JSON report + optimized prompt |
+
+Scores are aggregated with the paper's clamp — `clamp(s) = min(max(s, 0), 0.999)` per dimension, aggregate = weighted mean of clamped scores — so a saturated dimension can never mask the weakest one. Pass `test_queries=[...]` (2+ probes) to gate on per-query paired aggregates exactly as in the paper; with a single query the gate pairs the four clamped dimension scores instead.
 
 ## Evaluation Methodology
 
@@ -162,6 +164,13 @@ system. The **verbatim instrument and loop used in the paper** are published in
 [`reference/`](reference/) — where the interactive `tei_loop` package and the paper differ,
 `reference/` is what was measured. Frozen study data and per-system artifacts:
 [tei-bench](https://github.com/ojavadli/tei-bench).
+
+**v1.1.0** aligns the package core with the paper's Algorithm 1: the Eq. 1 clamp
+(`min(max(s, 0), 0.999)`) in score aggregation, per-iteration re-diagnosis of the
+best-so-far agent's weakest dimension (TARGET) with dimension-targeted proposals,
+and the do-no-harm deployment gate (mean ≥ reference AND losses ≤ wins over paired
+probes, exact two-sided sign-test p reported) in place of the earlier
+any-dimension-regression rule.
 
 ## Contributors
 
