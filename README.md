@@ -150,6 +150,11 @@ TEI never modifies your original agent file. It creates a clone (`agentCLONE1.py
 - An optimized prompt saved to `TEI-work/optimized_prompt.txt`
 - Full JSON results in `tei-results/`
 
+## Contributors
+
+- [Orkhan Javadli](https://github.com/ojavadli)
+- [Anni Zimina](https://github.com/anni-stanford)
+
 ## License
 
 MIT
