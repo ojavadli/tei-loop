@@ -56,7 +56,7 @@ Each dimension is scored 0.00–1.00 by a dedicated judge prompt. The aggregate 
 - TEI **clones** the original agent file (e.g. `agent.py` → `agentCLONE1.py`) in the same directory. The original is never touched.
 - If a clone already exists, TEI auto-increments (`agentCLONE2.py`, etc.)
 - After each patch, the modified clone is **reloaded and re-executed** to verify the fix actually works
-- If the score drops, **the patch is automatically reverted**
+- If the score does not improve (equal counts too), **the patch is automatically reverted**
 - Only the best-performing version is kept across all iterations
 
 ### Prompt Optimization
@@ -65,7 +65,7 @@ Each dimension is scored 0.00–1.00 by a dedicated judge prompt. The aggregate 
 - **Reflective mutation**: LLM reflects on trace failures, proposes targeted prompt changes
 - **System-aware merge**: combines lessons from two strong candidates
 - **Composite scoring**: weighted combination of all approved metrics
-- Only applies the optimized prompt if it **actually improves** the composite score
+- Only applies the optimized prompt if it **improves the composite score AND passes the do-no-harm gate**
 
 ## Python API
 
