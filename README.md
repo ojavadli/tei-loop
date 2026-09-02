@@ -158,15 +158,28 @@ TEI never modifies your original agent file. It creates a clone (`agentCLONE1.py
 ## The paper (2026) and the exact code it used
 
 TEI was evaluated on 30 systems from the SWE-bench leaderboard archive in
-*"TEI (Target--Evaluate--Improve) Loop: A Joint Advantage over Agent-Improvement Methods
-with Low-Cost Adaptive Bottleneck Optimization of Harnesses and Prompts for Self-Improving
-Agents"* (Zimina, Denisov-Blanch, Javadli, 2026): blinded judges prefer the TEI-modified
-agent on a majority of systems against GEPA, ACE, AHE, and MIPRO under a shared low-cost
-31-iteration regime (joint GEE 65% [52, 76]%, p = 0.029), at under $2 of supervision per
-system. The **verbatim instrument and loop used in the paper** are published in
+*"TEI: A Joint Advantage over Agent-Improvement Methods through Adaptive Bottleneck
+Optimization of Harnesses and Prompts"* (Javadli, Denisov-Blanch, Zimina, 2026). The
+current manuscript and its LaTeX source are
+[tei-bench/paper/TEIvs10](https://github.com/ojavadli/tei-bench/tree/main/paper/TEIvs10)
+([PDF](https://github.com/ojavadli/tei-bench/blob/main/paper/TEIvs10/TEIvs10.pdf)).
+TEI found deployable modifications for 26 of 30 systems; direction-hidden judges
+preferred the TEI artifact over each system's own baseline in 110/130 votes (84.6%); one
+unattended search run took 3.6 minutes and cost $0.47 of supervision. In the separate
+comparison experiment, adapted GEPA, ACE, AHE and MIPRO proposers ran in the same
+harness for 31 iterations each; the joint clustered estimate of TEI preference is 65%
+[52, 76]%, p = 0.029. Disclosure that applies to that comparison: TEI's side of the
+blinded head-to-head was the frozen main-study artifact (`tei-v7`), not the
+31-iteration TEI arm; the matched arm's outputs, the preregistration and the full
+deviation log are in
+[tei-bench/comparison](https://github.com/ojavadli/tei-bench/tree/main/comparison).
+The **verbatim instrument and loop used in the paper** are published in
 [`reference/`](reference/) — where the interactive `tei_loop` package and the paper differ,
-`reference/` is what was measured. Frozen study data and per-system artifacts:
-[tei-bench](https://github.com/ojavadli/tei-bench).
+`reference/` is what was measured. Algorithm 1 (the loop) and Algorithm 2 (the deployment
+gate) as a standalone figure: [`docs/TEI-Algorithm-1.pdf`](docs/TEI-Algorithm-1.pdf)
+(with `.png` and `.tex`). Frozen study data and per-system artifacts:
+[tei-bench](https://github.com/ojavadli/tei-bench) and
+[tei-swe](https://github.com/ojavadli/tei-swe).
 
 **v1.2.0** completes the Algorithm 1 alignment: the do-no-harm gate now ALSO fires once at the end on the whole shipped delta (structural + prompt) against the original baseline — exactly Algorithm 1's deploy-or-keep-baseline decision — and internal fallback models are current. **v1.1.0** aligned the package core with the paper's Algorithm 1: the Eq. 1 clamp
 (`min(max(s, 0), 0.999)`) in score aggregation, per-iteration re-diagnosis of the

@@ -1,0 +1,86 @@
+% Algorithm 1 + 2 -- Target-Evaluate-Improve (TEI), in the presentation style
+% used by GEPA (Agrawal et al., 2025, Fig. 4):
+%   * two boxes side by side at 9pt, the loop on the left and its load-bearing
+%     subroutine on the right;
+%   * Require split into Inputs and Hyperparameters;
+%   * named subroutines in small caps, defined in the manuscript prose;
+%   * mathematics deferred to the numbered equations, not inlined.
+% Ours keeps the three phase markers (Target / Evaluate / Improve) because they
+% map the method's name onto its steps; GEPA has no analogue to mark.
+% Algorithm 2 is a faithful restatement of Sec. 2.2: Eq. 3 (lines 2-3),
+% Eq. 4 (lines 4,6) and the small-n tightening (line 5).
+\documentclass[10pt,border=6pt]{standalone}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+
+\newlength{\algwidth}\setlength{\algwidth}{6.5in}
+\newlength{\boxA}\setlength{\boxA}{3.60in}
+\newlength{\boxB}\setlength{\boxB}{2.78in}
+\algrenewcommand\algorithmicrequire{\textbf{Require:}}
+\algrenewcommand{\algorithmiccomment}[1]{\hfill\(\triangleright\)~\textit{#1}}
+\makeatletter
+\renewcommand{\ALG@beginalgorithmic}{\small}
+\makeatother
+\algnewcommand\algorithmicto{\textbf{to}}
+
+\begin{document}
+\begin{minipage}{\algwidth}
+
+\begin{minipage}[t]{\boxA}
+\hrule height .8pt \vspace{2pt}
+{\small\textbf{Algorithm 1} Target--Evaluate--Improve (TEI)}
+\vspace{2pt} \hrule height .4pt \vspace{3pt}
+\begin{algorithmic}[1]
+\Require Inputs: baseline agent $A_0$, probe set $P$, dimensions $D$
+\Require Hyperparams: budget $N$, batch size $b$
+\State $L\gets\{(A_0,\,S(A_0))\}$
+\For{$t=1,\dots,\lceil N/b\rceil$}
+  \State $A^{\ast}\gets \operatorname*{arg\,max}_{(A,S)\in L} S$
+  \State $d^{\ast}_t\gets \operatorname*{arg\,min}_{d\in D} s_d(A^{\ast})$
+         \Comment{\textsc{Target}}
+  \State $C_t\gets \textsc{Propose}(A^{\ast},\,d^{\ast}_t,\,b;\ L)$
+  \For{$c\in C_t$}
+    \If{$\textsc{AstGate}(c)$}
+      \State score $c$ on $P$ by Eq.~1 \Comment{\textsc{Evaluate}}
+      \State add $(A_c,\,S(c))$ to $L$
+    \EndIf
+  \EndFor
+\EndFor
+\State $c^{\ast}\gets \operatorname*{arg\,max}_{(A,S)\in L} S$
+\State \Return $A_{c^{\ast}}$ if \textsc{Gate}$(c^{\ast},\mathrm{ref})$ else $A_0$
+       \Comment{\textsc{Improve}}
+\end{algorithmic}
+\vspace{1pt}\hrule height .8pt
+\end{minipage}
+\hfill
+\begin{minipage}[t]{\boxB}
+\hrule height .8pt \vspace{2pt}
+{\small\textbf{Algorithm 2} Do-no-harm deployment gate}
+\vspace{2pt} \hrule height .4pt \vspace{3pt}
+\begin{algorithmic}[1]
+\Require paired probe-query scores $S_i(\cdot)$ on $P$, $i=1,\dots,n$;
+         deployment reference ref
+\Function{Gate}{$c^{\ast}$, ref}
+  \State $\epsilon\gets 10^{-9}$
+  \State $W\gets\#\{i: S_i(c^{\ast})>S_i(\mathrm{ref})+\epsilon\}$
+  \State $L\gets\#\{i: S_i(c^{\ast})<S_i(\mathrm{ref})-\epsilon\}$
+  \State \textbf{if} $\bar S_{c^{\ast}}<\bar S_{\mathrm{ref}}$ \textbf{then}
+         \Return \textsc{false}
+  \State \textbf{if} $n<3$ \textbf{then} \Return $(L=0)$
+         \Comment{small $n$}
+  \State \Return $(L\le W)$
+\EndFunction
+\end{algorithmic}
+\vspace{1pt}\hrule height .8pt
+\end{minipage}
+
+\vspace{5pt}
+{\footnotesize\noindent Eq.~1\quad
+$S(c)=\tfrac{1}{4}\sum_{d\in D}\operatorname{clamp}\!\big(s_d(c)\big)$,\qquad
+$\operatorname{clamp}(s)=\min\!\big(\max(s,0),\,0.999\big)$.\par}
+\end{minipage}
+\end{document}
